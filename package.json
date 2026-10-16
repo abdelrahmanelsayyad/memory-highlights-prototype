@@ -1,0 +1,15 @@
+{
+  "name": "memory-highlights-prototype",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Clickable prototype for the CMPUT 656 study on memory highlights, sycophancy and trust.",
+  "scripts": {
+    "start": "serve public --no-clipboard -l tcp://0.0.0.0:${PORT:-3000}"
+  },
+  "dependencies": {
+    "serve": "14.2.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
