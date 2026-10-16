@@ -449,7 +449,7 @@ td.num { font-variant-numeric: tabular-nums; font-family: var(--font-mono); font
     var onAnswer = state.screen === "partA" || state.screen === "partB";
     document.getElementById("roundToggles").hidden = !onAnswer;
     var versionNote = state.version === "hl"
-      ? " Highlight version: every answer has exactly two highlighted sentences where a remembered detail was used, so the amount of highlighting does not give away the answer type."
+      ? " Highlight version: every answer has exactly two highlighted sentences where a remembered detail was used, so the amount of highlighting should not give away the answer type."
       : " No-highlight version: the same answer text with no marks, which is how memory-enabled assistants usually look.";
     var note = {
       profile: "Session 1, about 10 minutes. 32 items: 12 opinions, 12 preferences, 8 background facts. Answers become the memory profile.",
