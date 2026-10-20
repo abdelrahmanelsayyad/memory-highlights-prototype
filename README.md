@@ -2,7 +2,7 @@
 
 Clickable prototype for a CMPUT 656 (University of Alberta) term project on whether people notice when an AI assistant's memory of them biases its answers, and whether highlighting where memory was used changes their trust.
 
-It shows every screen a participant sees:
+It shows the five main screens a participant sees:
 
 1. Session 1 profile questionnaire
 2. Session 2 memory review

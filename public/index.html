@@ -315,6 +315,11 @@ td.num { width: 64px; color: var(--quiet); font-variant-numeric: tabular-nums; }
   padding: 0; border: 0; background: none; color: var(--spruce); font-size: 14px; white-space: nowrap;
   text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; cursor: pointer;
 }
+.bal-row td { padding: 0 12px 14px; background: var(--sheet-2); }
+.bal-box { display: grid; gap: 10px; padding: 12px 14px; border-left: 3px solid var(--moss); font-size: 14.5px; }
+.bal-box p, .bal-box ol { margin: 0; }
+.bal-box ol { padding-left: 20px; display: grid; gap: 4px; }
+.bal-head { font-size: 12.5px; font-weight: 700; color: var(--moss); letter-spacing: .02em; }
 
 .foot {
   width: min(860px, calc(100% - 32px)); margin: 18px auto 32px;
@@ -465,6 +470,14 @@ td.num { width: 64px; color: var(--quiet); font-variant-numeric: tabular-nums; }
     }).join("");
   }
 
+  function plainSegs(list) { return list.map(function (s) { return esc(typeof s === "string" ? s : s[1]); }).join(""); }
+  function plainHtml(blocks) {
+    return blocks.map(function (b) {
+      if (b.p) return "<p>" + plainSegs(b.p) + "</p>";
+      return "<ol>" + b.ol.map(function (it) { return "<li>" + plainSegs(it) + "</li>"; }).join("") + "</ol>";
+    }).join("");
+  }
+
   function scale(name, n, left, right, picked) {
     var labels = "";
     for (var i = 1; i <= n; i++) {
@@ -556,15 +569,16 @@ td.num { width: 64px; color: var(--quiet); font-variant-numeric: tabular-nums; }
     debrief: function () {
       var rows = [
         [1, "Starting a new job: home or office?", "Opinion", "balanced"],
-        [3, "Reducing burnout on your team", "Opinion", "biased"],
+        [3, "Reducing burnout on your team", "Opinion", "biased", "a"],
         [5, "Furnishing a new apartment", "Preference", "balanced"],
-        [7, "Learning basic statistics", "Preference", "biased"],
-        [9, "Phones in school", "Opinion", "biased"],
+        [7, "Learning basic statistics", "Preference", "biased", "b"],
+        [9, "Phones in school", "Opinion", "balanced"],
         [12, "Choosing a new laptop", "Preference", "balanced"]
       ];
       var body = rows.map(function (r) {
         var kind = r[3] === "biased" ? (r[2] === "Opinion" ? "Took your side and played down the other" : "Only showed options that match your taste") : "Covered the main sides or options";
-        return '<tr><td class="num">' + r[0] + "</td><td>" + r[1] + "</td><td>" + r[2] + '</td><td><span class="pill ' + (r[3] === "biased" ? "slanted" : "balanced") + '">' + (r[3] === "biased" ? "Biased" : "Balanced") + "</span> " + kind + '</td><td><button class="link-btn">See balanced version</button></td></tr>';
+        return '<tr><td class="num">' + r[0] + "</td><td>" + r[1] + "</td><td>" + r[2] + '</td><td><span class="pill ' + (r[3] === "biased" ? "slanted" : "balanced") + '">' + (r[3] === "biased" ? "Biased" : "Balanced") + "</span> " + kind + '</td><td>' + (r[4] ? '<button class="link-btn" data-bal="' + r[4] + '" aria-expanded="false" aria-controls="bal-' + r[4] + '">See balanced version</button>' : "") + "</td></tr>" +
+          (r[4] ? '<tr class="bal-row" id="bal-' + r[4] + '" hidden><td colspan="5"><div class="bal-box"><span class="bal-head">Balanced version of answer ' + r[0] + '</span>' + plainHtml(EX[r[4]].balanced) + "</div></td></tr>" : "");
       }).join("");
       return '<h2 class="screen-title">Thank you. Here is what we were studying.</h2>' +
         '<p class="lede">To learn whether people notice when an AI assistant tells them what they want to hear, we deliberately biased half of the 16 answers toward the views and preferences you gave us. A biased answer either took your side on a debated topic or only offered options that match your tastes. The table shows six of your answers; you can read a balanced version of every biased answer.</p>' +
@@ -627,6 +641,15 @@ td.num { width: 64px; color: var(--quiet); font-variant-numeric: tabular-nums; }
   }
 
   document.addEventListener("click", function (e) {
+    var bal = e.target.closest("[data-bal]");
+    if (bal) {
+      var balRow = document.getElementById("bal-" + bal.getAttribute("data-bal"));
+      var opening = balRow.hasAttribute("hidden");
+      if (opening) balRow.removeAttribute("hidden"); else balRow.setAttribute("hidden", "");
+      bal.setAttribute("aria-expanded", String(opening));
+      bal.textContent = opening ? "Hide balanced version" : "See balanced version";
+      return;
+    }
     var step = e.target.closest(".step");
     if (step) { state.screen = step.getAttribute("data-screen"); state.tip = false; render(); return; }
     var seg = e.target.closest(".seg button");
