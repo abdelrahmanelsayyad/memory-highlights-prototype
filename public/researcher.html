@@ -32,7 +32,7 @@
           <label>Preference A <select id="pA"></select></label><label>Preference B <select id="pB"></select></label>
           <button class="btn small ghost" id="override">Set topics (allows an ineligible participant)</button>
         </div>
-        <div class="row"><button class="btn small" id="starts2">Start Session 2</button><a class="btn small ghost" id="export" href="#" download>Download JSON export</a><button class="btn small ghost" id="reset2">Reset Session 2</button><button class="btn small ghost" id="resetall">Reset everything</button><button class="btn small ghost" id="delete">Delete participant</button><span class="muted" id="auto">Refreshes every 10 s</span></div>
+        <div class="row"><button class="btn small" id="starts2">Start Session 2</button><a class="btn small ghost" id="export" href="#" download>Download JSON export</a><button class="btn small ghost" id="reset2">Reset Session 2</button><button class="btn small ghost" id="resetall">Reset everything</button><button class="btn small ghost" id="delete">Delete participant</button><span class="muted" id="auto">Refreshes every 10 s</span><label class="muted"><input type="checkbox" id="showmodes"> Show modes (only after the interview)</label></div>
         <pre id="dump"></pre>
       </div>
     </div>
@@ -69,7 +69,11 @@
     let r; try { r = await api('participant/' + pid); } catch (e) { if (cur === pid) { cur = null; $('#detail').hidden = true; } return; }
     cur = pid; $('#detail').hidden = false; $('#dtitle').textContent = pid + ' · stage ' + JSON.stringify(r.stage);
     if (r.participant.topics && !keepSelects) { $('#oA').value = r.participant.topics.opinion[0]; $('#oB').value = r.participant.topics.opinion[1]; $('#pA').value = r.participant.topics.preference[0]; $('#pB').value = r.participant.topics.preference[1]; }
-    $('#export').href = '/api/r/export/' + pid; $('#dump').textContent = JSON.stringify(r.participant, null, 1);
+    $('#export').href = '/api/r/export/' + pid;
+    // During a session the researcher must not know which answers were biased, so modes and plans are hidden unless asked for.
+    const view = JSON.parse(JSON.stringify(r.participant));
+    if (!$('#showmodes').checked && view.s2 && view.s2.blocks) for (const B of view.s2.blocks) { if (B.audit) B.audit.score = '(hidden until modes are shown)'; for (const c of B.convs) { c.plan = '(hidden)'; for (const t of c.turns) { t.mode = '(hidden)'; delete t.gen; delete t.ver; t.final = t.final.map(s => s.text); } } }
+    $('#dump').textContent = JSON.stringify(view, null, 1);
   }
   setInterval(() => { if (document.visibilityState !== 'visible') return; refresh(); if (cur) openP(cur, true); }, 10000);
   $('#create').onclick = async () => { try { await api('participant', { pid: $('#newpid').value }); $('#newpid').value = ''; $('#err').textContent = ''; refresh(); } catch (e) { $('#err').textContent = e.message; } };
@@ -78,6 +82,7 @@
   $('#reset2').onclick = async () => { if (cur && confirm('Reset Session 2 for ' + cur + '? Session 1 answers are kept.')) { await api('reset', { pid: cur, what: 'session2' }); refresh(); openP(cur); } };
   $('#delete').onclick = async () => { if (cur && confirm('Delete ' + cur + ' completely, including the event log? This cannot be undone.')) { try { await api('delete', { pid: cur }); cur = null; $('#detail').hidden = true; refresh(); } catch (e) { $('#err').textContent = e.message; } } };
   $('#resetall').onclick = async () => { if (cur && confirm('Erase everything for ' + cur + '?')) { await api('reset', { pid: cur, what: 'all' }); refresh(); openP(cur); } };
+  $('#showmodes').onchange = () => { if (cur) openP(cur, true); };
   $('#setkey').onclick = () => { key = $('#key').value.trim(); localStorage.setItem('rkey', key); $('#keybox').hidden = true; refresh(); };
   $('#export').onclick = e => { if (key) { e.preventDefault(); fetch($('#export').href, { headers: hdr() }).then(r => r.blob()).then(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = cur + '-export.json'; a.click(); }); } };
   refresh();

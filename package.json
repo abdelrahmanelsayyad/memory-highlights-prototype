@@ -1,6 +1,6 @@
 {
   "name": "memory-highlights-study",
-  "version": "2.1.3",
+  "version": "2.1.4",
   "private": true,
   "description": "Study tool for the CMPUT 656 project on memory highlights, sycophancy and trust: a chat assistant with a live language model, a memory profile, biased/balanced answer scheduling, verified highlights, and logging.",
   "main": "server.js",
