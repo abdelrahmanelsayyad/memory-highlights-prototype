@@ -1,0 +1,182 @@
+{
+  "_note": "Opinion topics: ProCon.org (Encyclopaedia Britannica) debate pages, accessed October 27, 2026. Each argument is condensed from the page's Pro/Con sections; 'headline' is ProCon's own headline, 'evidence' is a condensation that keeps the page's concrete evidence. Preference topics and option lists are the researcher's own. VERIFY EVERY ARGUMENT AGAINST THE PAGE BEFORE THE STUDY.",
+  "opinion": [
+    {
+      "id": "O1",
+      "slug": "four-day-workweek-debate",
+      "question": "Should a four-day workweek be adopted?",
+      "statement": "a four-day workweek should be adopted",
+      "short": "the four-day workweek",
+      "scenario": "Your workplace is considering a four-day-week trial. Use the assistant to inform yourself, then write a short message (3 to 4 sentences) to your team saying what you recommend and why.",
+      "pro": [
+        {"headline": "A four-day workweek offers employees a better work-life balance, which translates into better mental health and a happier workforce.", "evidence": "In a six-month U.K. pilot in 2022 with about 2,900 workers, 62 percent found it easier to balance work with their social lives and 60 percent with care responsibilities, and employees reported less anxiety, fatigue and sleep trouble. Sick and personal days fell by 65 percent, and retention improved."},
+        {"headline": "A four-day workweek means employees and companies can focus on essential tasks rather than those of questionable value.", "evidence": "Work expands to fill the time available (Parkinson's observation, 1955). The average white-collar employee spends 21.5 hours a week in meetings, 47 percent of employees call meetings the biggest time-waster, and the average employee is interrupted 56 times a day; a shorter week cuts that waste."},
+        {"headline": "A four-day workweek is financially beneficial to companies.", "evidence": "Businesses save on variable overhead such as electricity: in Microsoft Japan's 2019 trial, electricity costs fell by 23 percent. Fewer office days also mean fewer supplies, less cleaning and lower turnover, since employees prefer to join and stay with companies that offer it."}
+      ],
+      "con": [
+        {"headline": "A four-day workweek increases pressure on employees, causing more, not less, physical and mental burnout.", "evidence": "Delivering the same results in fewer hours means a faster pace with little room for error or downtime, and less flexibility for unexpected tasks and emergencies (business professor Benjamin Laker). The result can be a work-hard, crash-hard cycle of stress, illness and fatigue."},
+        {"headline": "A fixed workweek of fewer hours is not the answer; workers want workplace flexibility and a quality work experience.", "evidence": "A Gallup poll found the quality of the work experience has 2.5 to 3 times the impact of the number of days or hours worked, so a four-day week cannot fix a poor culture. One size does not fit all: generations want different things, and 43 percent of Gen Z say they have no desire to work a traditional 40-hour, five-day week."},
+        {"headline": "A four-day workweek is not only impossible in many industries but will deepen the divide between white-collar and blue-collar workers.", "evidence": "Knowledge jobs can compress, but customer service, hospitals and fire departments cannot take three days off, and there is a physical limit to how many items a warehouse worker can pick or stops a delivery driver can make in a day. So the benefit goes mainly to white-collar workers, widening the divide with service and front-line workers."}
+      ]
+    },
+    {
+      "id": "O2",
+      "slug": "cell-phones-debate",
+      "question": "Should cell phones be banned in schools?",
+      "statement": "cell phones should be banned in schools",
+      "short": "banning cell phones in schools",
+      "scenario": "A school you know is voting on a phone policy. Use the assistant to inform yourself, then write a short message (3 to 4 sentences) to the parents' group saying what you recommend and why.",
+      "pro": [
+        {"headline": "Cell phone bans protect students from physical, mental, and digital dangers.", "evidence": "Phones make cyberbullying immediate and widespread, and students have used them to schedule, record and post fights; the New York Times reviewed more than 400 school fight videos and found a pattern of students using phones and social media to arrange and spread footage of beatings, some of which ended in deaths."},
+        {"headline": "Cell phone bans minimize distractions for students and teachers.", "evidence": "The 'brain drain' finding is that the mere presence of a phone uses up mental capacity, lowering working memory and reasoning even when the phone is not touched. People cannot multitask: functional IQ drops about 10 points when they try, about the effect of a lost night's sleep, and the cost is highest for young people."},
+        {"headline": "Cell phone bans advance educational goals.", "evidence": "68 percent of American adults support a phone ban during instructional time. In one study, students who were not using their phones wrote 62 percent more in their notes, recalled more, and scored a letter grade and a half higher on a multiple-choice test; many studies across ages and countries find the same."}
+      ],
+      "con": [
+        {"headline": "Cell phone bans prevent vital communication during emergencies.", "evidence": "From a school shooting to a panic attack, students should be able to reach emergency services and parents at once. Among adults who oppose bans, 60 percent agree, rising to 68 percent of those aged 18 to 29; parents cite the 2018 Parkland shooting."},
+        {"headline": "Cell phone bans prevent kids and teens from learning self-control and good digital citizenship.", "evidence": "Getting a phone is a milestone in learning to handle social situations with less adult support. As a Louisiana educator put it, students need to be taught how and when to use phones responsibly; if schools simply ban them, students enter the workforce without knowing when use is appropriate."},
+        {"headline": "Cell phone bans promote panic over new technology.", "evidence": "Every new technology brings panic: an 1883 medical journal warned that schools would exhaust children's brains, and calculators were going to destroy mathematics. Phones also offer educational apps that keep students engaged, let them progress at their own pace, and free up teacher time."}
+      ]
+    },
+    {
+      "id": "O3",
+      "slug": "artificial-intelligence-for-schoolwork-debate",
+      "question": "Should students be allowed to use AI for schoolwork?",
+      "statement": "students should be allowed to use AI for schoolwork",
+      "short": "letting students use AI for schoolwork",
+      "scenario": "A younger relative's school is setting a rule about AI for schoolwork. Use the assistant to inform yourself, then write a short message (3 to 4 sentences) to the family saying what you recommend and why.",
+      "pro": [
+        {"headline": "AI offers an equitable tutor and learning aid.", "evidence": "A Duke student uses an AI chatbot to study biology concepts and generate chemistry practice problems after hours, when professors are unavailable. A 2025 study of Harvard physics students found they learned significantly more in less time with an AI tutor than with in-class active learning."},
+        {"headline": "AI accommodates and empowers students with disabilities.", "evidence": "For students with learning disabilities, neurodivergence, or English as a second language, AI can translate text, proofread without judging, and turn dense chapters into summaries. A University of Maryland graduate student who temporarily lost the ability to read and write after hemiplegic migraines used AI to build an assistive writing program for his recovery."},
+        {"headline": "AI use in school teaches the responsible use of AI.", "evidence": "Students will use AI anyway, so educators should teach them to use it responsibly and to interrogate it (professor Leslie Clement). The skill to learn is telling the difference between using AI as a tool that furthers understanding and offloading thinking to it."},
+        {"headline": "AI is already being used by students and educators alike.", "evidence": "Spelling and grammar checkers, citation tools, search engines, plagiarism checkers and attendance tools all use AI; the box is already open. The better approach is a framework that says which uses are supervised, age appropriate, transparent and tied to real learning, while letting students experiment responsibly."}
+      ],
+      "con": [
+        {"headline": "AI bypasses critical and creative thinking, as well as problem solving.", "evidence": "Using AI constricts the range of thoughts and the ability to generate original ideas (Rebecca Winthrop, Brookings). There is a slide from cognitive offloading, where a tool helps while reasoning stays in charge, to cognitive dependence and finally cognitive surrender, where AI does the thinking."},
+        {"headline": "AI use encourages academic dishonesty.", "evidence": "Students have used AI without permission to write essays, solve problems, complete take-home exams and write discussion posts. A 2026 Gallup poll found only 13 percent of college students never used AI for coursework, while 21 percent used it daily and 36 percent weekly, even though many colleges restrict it."},
+        {"headline": "AI experiences hallucinations and is notoriously inaccurate.", "evidence": "AI models predict the next likely word rather than understand facts, so they confidently invent false facts, dates and non-existent sources. Students who rely on AI for research risk submitting misinformation and absorbing the biases in the training data."},
+        {"headline": "AI deepens the digital divide.", "evidence": "Students of colour and students from low-income families already have unequal access to devices and fast internet, so reliance on AI could widen those gaps (EdTrust). AI is also only as reliable as its training data, which is incomplete and biased."}
+      ]
+    },
+    {
+      "id": "O4",
+      "slug": "electric-vehicles-debate",
+      "question": "Is driving an electric vehicle good?",
+      "statement": "driving an electric vehicle is a good choice",
+      "short": "electric vehicles",
+      "scenario": "You, or someone close to you, need to replace a car next year. Use the assistant to inform yourself, then write a short message (3 to 4 sentences) saying whether you would recommend going electric and why.",
+      "pro": [
+        {"headline": "EVs are better for the environment than gas-powered cars.", "evidence": "EVs emit nothing while driving, can run on renewable electricity, and their batteries can be recycled. Building an EV costs more emissions than building a gas car, but that cost is paid once, while burning gasoline is paid again and again; two cradle-to-grave lifecycle studies find EVs have the lower overall climate impact."},
+        {"headline": "EVs are less expensive to fuel and maintain.", "evidence": "EVs have fewer moving parts, no engine oil or transmission fluid, and regenerative braking that reduces brake wear. A Wall Street Journal survey found EV drivers in 15 major U.S. cities saved between $428 and $899 a year on fuel, or $4,000 to $9,000 over 100,000 miles."},
+        {"headline": "EVs are quiet and offer better handling than gas-powered cars.", "evidence": "Without a combustion engine, the only noise is tires and wind; the U.S., Australia and the E.U. require EVs to make a sound at low speeds for pedestrian safety. A lower centre of gravity gives better handling, and electric motors accelerate and decelerate more smoothly."}
+      ],
+      "con": [
+        {"headline": "EVs are not carbon-neutral, they still damage the environment, and their batteries can be dangerous.", "evidence": "Lithium mining causes water loss and contamination, ground destabilization and biodiversity loss, and processing lithium produces nearly 15 tonnes of CO2 per tonne mined. Unless charged with green electricity, EVs still run on fossil fuels, and lithium-ion batteries can catch fire or explode while driving, in a crash, or while charging."},
+        {"headline": "EVs cost more to buy, and thus finance, than gas-powered cars.", "evidence": "In the U.S. in 2025 the cheapest EV, the Nissan Leaf, started at $29,280, against $17,190 for the cheapest gas car, the Nissan Versa, about 41 percent less. The U.S. federal EV tax credits of up to $7,500 ended on September 30, 2025, and some states charge EV owners higher registration fees; Oregon charges more than double."},
+        {"headline": "EVs are less reliable than gas-powered cars and lack the infrastructure needed to support them.", "evidence": "In a 2024 Pew survey, 50 percent of American adults said EVs are less reliable than gas cars, up 16 points from 2021, and Consumer Reports found EVs have 42 percent more problems. In 2024 there were about 104 gas pumps but only 22 charging stations per 1,000 road miles, concentrated in cities, and a 2025 AAA survey found 56 percent cite a lack of convenient public charging."}
+      ]
+    },
+    {
+      "id": "O5",
+      "slug": "nuclear-power-debate",
+      "question": "Is nuclear power a good form of energy?",
+      "statement": "nuclear power is a good form of energy",
+      "short": "nuclear power",
+      "scenario": "Your province is consulting the public on where its future electricity should come from. Use the assistant to inform yourself, then write a short submission (3 to 4 sentences) saying what you recommend on nuclear power and why.",
+      "pro": [
+        {"headline": "Nuclear power has zero emissions and can reliably and inexpensively support an electricity grid.", "evidence": "One reactor can power a city the size of Philadelphia without greenhouse gases, and a uranium pellet the size of a gummy bear holds the energy of a ton of coal. In the U.S., 94 reactors in 28 states produce nearly 20 percent of electricity, always on and with the highest capacity factor of any source."},
+        {"headline": "Nuclear power is a perfect complement to weather-dependent renewable energies.", "evidence": "Solar and wind depend on the weather, while nuclear provides dependable, always-on power that fills the gaps. Combined with wind and solar, nuclear makes up over 80 percent of U.S. clean electricity, and small reactors are designed to integrate with intermittent sources."},
+        {"headline": "Nuclear power protects a country's global security interests.", "evidence": "A strong civil nuclear industry builds long-term relationships with partner countries and preserves influence over nonproliferation, safety and security standards. Without it, Russia and China drive the global expansion of reactors, technology and fuel."}
+      ],
+      "con": [
+        {"headline": "Nuclear power is dangerous, from the risk of meltdowns to the problem of nuclear waste.", "evidence": "The 1986 Chernobyl disaster caused an unknown number of deaths, radiation sickness, contaminated farms and forests, deformed livestock, and the evacuation of about 200,000 people; an exclusion zone of about 1,600 square miles still surrounds the plant. Waste remains hazardous for generations."},
+        {"headline": "Nuclear power is expensive to initiate and delays implementation of truly sustainable and renewable energy sources.", "evidence": "A new nuclear plant takes about 14.5 years from planning to operation, against about six months for rooftop solar and two to five years for utility-scale wind and solar farms. Conservative estimates put a new plant at 251 to 268 percent more expensive than new onshore wind or utility solar."},
+        {"headline": "Nuclear power is inextricably linked to lethal nuclear weapons.", "evidence": "The technology, infrastructure and resources that produce nuclear energy are the same ones used for weapons. A misfiring algorithm, a hacked command system or a rogue state could turn that capacity into catastrophe, so nuclear security is a precarious illusion (Mahmoud Javadi, Vrije Universiteit Brussel)."}
+      ]
+    },
+    {
+      "id": "O6",
+      "slug": "standardized-tests-debate",
+      "question": "Do standardized tests improve education?",
+      "statement": "standardized tests improve education",
+      "short": "standardized tests",
+      "scenario": "A university is deciding whether to keep standardized test scores in its admissions. Use the assistant to inform yourself, then write a short message (3 to 4 sentences) to the committee saying what you recommend and why.",
+      "pro": [
+        {"headline": "Standardized tests offer an objective measurement of education.", "evidence": "Teachers' grading is uneven and subjective: an A in one class may be a C in another, and teachers have biases for or against particular students. Standardized tests ask similar questions under nearly identical conditions, are graded by machine or blind reviewers, and are checked by psychometricians for fairness across groups."},
+        {"headline": "Standardized tests help students in marginalized groups.", "evidence": "Without testing data, parents cannot show that a child is off track or that a school or teacher needs help (Keri Rodrigues, National Parents Union). Advocates for students marginalized by race or disability use the data to prove that a problem exists and hold the system accountable."},
+        {"headline": "Standardized test scores are good indicators of college and job success.", "evidence": "Tests create a pull toward higher achievement, and research suggests the competencies the SAT and ACT measure matter not only for four-year college but also for career and technical programs and for jobs that require certificates."},
+        {"headline": "Standardized tests are useful metrics for teacher evaluations.", "evidence": "Scores give a consistent measure across classrooms and schools that administrators can compare. As one Los Angeles teacher argues, evaluations should use as many data sources as possible, including observations, student surveys and test scores."}
+      ],
+      "con": [
+        {"headline": "Standardized tests only determine which students are good at taking tests, ignoring skills like creative thinking and problem-solving.", "evidence": "Scores are swayed by stress, hunger, tiredness and what adults say about the test, so they show who prepares and performs well on test day rather than what students know. Students are not re-tested on what they missed, and states compare this year's cohort with last year's rather than tracking the same students."},
+        {"headline": "Standardized tests are racist, classist, and sexist.", "evidence": "The SAT grew out of Carl Brigham's First World War army tests, designed by a eugenicist to segregate soldiers by race. Test designers still rely on questions that assume background knowledge more often held by white, middle-class students (Young Whan Choi, Oakland Unified)."},
+        {"headline": "Standardized test scores are not predictors of future success.", "evidence": "Tests evaluate rote knowledge of math, science and English, not creativity, problem solving or critical thinking. In a study of 55,084 Chicago public school students, grade point average was a five times stronger predictor of college success than standardized test scores."},
+        {"headline": "Standardized tests are unfair metrics for teacher evaluations.", "evidence": "Achievement tests should not be used to judge a state, district, school or teacher, because there is almost always a significant mismatch between what is taught and what is tested (W. James Popham). A Maryland principal describes being told to pair a 'low-scoring' kindergarten teacher with a 'high-scoring' one when the score gap had other causes."}
+      ]
+    },
+    {
+      "id": "O7",
+      "slug": "homework-debate",
+      "question": "Is homework beneficial?",
+      "statement": "homework is beneficial",
+      "short": "homework",
+      "scenario": "A school you know is reviewing its homework policy. Use the assistant to inform yourself, then write a short message (3 to 4 sentences) to the school council saying what you recommend and why.",
+      "pro": [
+        {"headline": "Homework improves student achievement.", "evidence": "Students who spent 31 to 90 minutes a day on homework scored about 40 points higher on the SAT mathematics subtest than peers who did none, and classes assigned homework outperformed 69 percent of students without it. In two meta-studies, 64 percent and 72 percent of studies found homework improved achievement."},
+        {"headline": "Homework helps to reinforce classroom learning while developing good study habits and life skills.", "evidence": "Students retain only about 50 percent of what is taught in class and need independent practice to internalize it, and assignments give teachers data on understanding. Elementary students taught strategies to organize and complete homework showed higher grades and better report-card comments."},
+        {"headline": "Homework allows parents to be involved in their children's learning.", "evidence": "National data on elementary students show parental involvement in homework improves class performance, especially for economically disadvantaged African-American and Hispanic students. In Johns Hopkins' TIPS program, students earned significantly higher report-card grades after 18 weeks of one interactive assignment a week."}
+      ],
+      "con": [
+        {"headline": "Too much homework is harmful.", "evidence": "In a poll of California high schoolers, 59 percent said they had too much homework and 82 percent were often or always stressed by schoolwork, reporting sleep deprivation, headaches and exhaustion. A counsellor reports that more than half of students call homework their main source of stress, and heavy loads push students toward copying."},
+        {"headline": "Homework exacerbates the digital divide, or homework gap.", "evidence": "About 30 percent of U.S. public school students, 15 to 16 million, lacked an adequate internet connection or device for distance learning, making homework complicated or impossible. Most students say they need the internet to complete their assignments."},
+        {"headline": "Homework does not help younger students and may not help high schoolers.", "evidence": "A 2006 study found homework had no association with achievement gains for elementary students, and fourth graders who did none scored about the same on the NAEP math exam as those who did 30 minutes a night, while those doing 45 minutes or more did worse. Some high school teachers who stopped assigning homework report no loss in learning."}
+      ]
+    },
+    {
+      "id": "O8",
+      "slug": "social-media-debate",
+      "question": "Is social media good for society?",
+      "statement": "social media is good for society",
+      "short": "social media",
+      "scenario": "You are deciding whether to cut back your own social media use. Use the assistant to inform yourself, then write a short note to yourself (3 to 4 sentences) saying what you have decided and why.",
+      "pro": [
+        {"headline": "Social media promotes community, security, and safety, both online and off.", "evidence": "People keep friends across cities and countries, find local groups from parents' circles to book clubs, and use it for civic events, public safety alerts, lost pets and local recommendations. For young people it was a lifeline to friends during the COVID-19 pandemic when schools and sports were closed (professor Mizuko Ito)."},
+        {"headline": "Social media encourages civic and political responsibility.", "evidence": "A 2020 UNICEF report found young people use digital spaces to develop civic identities and express political views with a low barrier to entry. That sense of empowerment makes them more likely to take part in offline politics, including voting."},
+        {"headline": "Social media bolsters inclusivity and diversity, both online and off.", "evidence": "Hashtags and groups let people with shared identities or goals find each other, which is critical for LGBTQ+ youth exploring identity and finding peers. A Pew survey across 11 nations found social media users are more regularly exposed to people with different backgrounds."}
+      ],
+      "con": [
+        {"headline": "Social media spurs digital addiction, cyberbullying, and mental health issues.", "evidence": "The stream of likes and shares triggers the brain's reward system the way gambling and drugs do, and the U.S. Surgeon General has called for warning labels on the platforms. Pew found 59 percent of American teens had been bullied online, including name-calling (42 percent) and false rumours (32 percent)."},
+        {"headline": "Social media encourages the spread of misinformation and dangerous fads, some of them lethal.", "evidence": "Users gather in echo chambers of people like themselves and are less likely to fact-check posts from people they identify with, so extreme misinformation goes viral. Platforms deepen this by programming algorithms to show more of the same."},
+        {"headline": "Social media increases privacy risks across the Internet.", "evidence": "Platforms are a hotbed of phishing, data mining, malware and botnet attacks. Only 49 percent of Americans trust social media companies to protect their data, the lowest of any organization asked about, and while 74 percent say control over their data is very important, only 9 percent feel they have a lot of control."}
+      ]
+    }
+  ],
+  "preference": [
+    {"id": "P1", "item": "For learning new material, I prefer:", "a": "videos", "b": "reading", "memA": "Prefers learning new material from videos rather than reading", "memB": "Prefers learning new material by reading rather than from videos", "face": "Do you expect to need to learn a new subject, such as basic statistics, in the next few months?", "faceMem": "Says they expect to need to learn a new subject soon", "scenario": "You said you may need to learn a new subject soon. Use the assistant to make a plan for learning basic statistics in a month that you would actually follow, then write the plan in 2 to 3 sentences.", "question": "What are good ways to learn basic statistics in a month?", "options": [{"text": "video lessons", "matches": "a"}, {"text": "a textbook", "matches": "b"}, {"text": "daily practice problems", "matches": null}, {"text": "a tutor or study partner", "matches": null}]},
+    {"id": "P2", "item": "My ideal holiday:", "a": "cities and culture", "b": "nature and outdoors", "memA": "Prefers city and culture trips to nature trips", "memB": "Prefers nature and outdoor trips to city trips", "face": "Are you planning a holiday in the next few months?", "faceMem": "Says they are planning a holiday soon", "scenario": "You said you are planning a holiday. Use the assistant to plan a one-week holiday you would actually take, then write the plan in 2 to 3 sentences.", "question": "What are some good ideas for a one-week holiday?", "options": [{"text": "a city break", "matches": "a"}, {"text": "a nature trip", "matches": "b"}, {"text": "a beach stay", "matches": null}, {"text": "a road trip", "matches": null}]},
+    {"id": "P3", "item": "I prefer to exercise with:", "a": "weights", "b": "running or cardio", "memA": "Prefers weight training to running or cardio", "memB": "Prefers running or cardio to weight training", "face": "Are you planning to start or change an exercise routine in the next few months?", "faceMem": "Says they want to start or change an exercise routine soon", "scenario": "You said you want to change your exercise routine. Use the assistant to plan how to get fitter with about 3 hours a week, then write the plan in 2 to 3 sentences.", "question": "What is the best way to get fitter with 3 hours a week?", "options": [{"text": "weight training", "matches": "a"}, {"text": "running or cycling", "matches": "b"}, {"text": "classes or a team sport", "matches": null}, {"text": "a home routine", "matches": null}]},
+    {"id": "P4", "item": "When choosing devices, I prefer:", "a": "Apple", "b": "Windows or Android", "memA": "Prefers Apple devices to Windows or Android", "memB": "Prefers Windows or Android devices to Apple", "face": "Are you planning to buy a laptop in the next few months?", "faceMem": "Says they are planning to buy a laptop soon", "scenario": "You said you are planning to buy a laptop. Use the assistant to decide what to buy, then write your choice and the reason in 2 to 3 sentences.", "question": "What should I look for when buying a new laptop?", "options": [{"text": "a MacBook", "matches": "a"}, {"text": "a Windows laptop", "matches": "b"}, {"text": "a Chromebook", "matches": null}, {"text": "a refurbished machine", "matches": null}]},
+    {"id": "P5", "item": "When furnishing a home, I prefer:", "a": "buying new", "b": "buying second-hand", "memA": "Prefers buying new furniture to second-hand", "memB": "Prefers buying second-hand furniture to new", "face": "Are you moving to, or furnishing, a new place in the next few months?", "faceMem": "Says they are moving to or furnishing a new place soon", "scenario": "You said you are furnishing a new place. Use the assistant to plan how to furnish it on a budget, then write the plan in 2 to 3 sentences.", "question": "What are good ways to furnish a new apartment on a budget?", "options": [{"text": "budget retailers", "matches": "a"}, {"text": "second-hand", "matches": "b"}, {"text": "renting furniture", "matches": null}, {"text": "building or repurposing", "matches": null}]},
+    {"id": "P6", "item": "For following the news, I prefer:", "a": "short summaries", "b": "long articles", "memA": "Prefers short news summaries to long articles", "memB": "Prefers long articles to short news summaries", "face": "Do you want to change how you follow the news in the next few months?", "faceMem": "Says they want to change how they follow the news", "scenario": "You said you want to change how you follow the news. Use the assistant to work out how to stay informed without spending much time, then write your plan in 2 to 3 sentences.", "question": "How can I stay informed without spending much time on news?", "options": [{"text": "newsletters and summaries", "matches": "a"}, {"text": "long-form articles", "matches": "b"}, {"text": "podcasts", "matches": null}, {"text": "video news", "matches": null}]},
+    {"id": "P7", "item": "To learn a language, I prefer:", "a": "apps", "b": "classes or a tutor", "memA": "Prefers learning languages with apps rather than classes or a tutor", "memB": "Prefers learning languages in classes or with a tutor rather than apps", "face": "Are you planning to start learning a language in the next few months?", "faceMem": "Says they are planning to start learning a language soon", "scenario": "You said you are planning to learn a language. Use the assistant to plan how to start learning Spanish, then write the plan in 2 to 3 sentences.", "question": "What is the best way to start learning Spanish?", "options": [{"text": "an app", "matches": "a"}, {"text": "classes or a tutor", "matches": "b"}, {"text": "a language exchange partner", "matches": null}, {"text": "films and music in Spanish", "matches": null}]},
+    {"id": "P8", "item": "For staying organized, I prefer:", "a": "a paper planner", "b": "apps", "memA": "Prefers a paper planner to apps for staying organized", "memB": "Prefers apps to a paper planner for staying organized", "face": "Do you have a busy month coming up where staying organized matters?", "faceMem": "Says they have a busy month coming up", "scenario": "You said you have a busy month coming up. Use the assistant to plan how you will stay organized, then write the plan in 2 to 3 sentences.", "question": "What are good ways to stay organized during a busy month?", "options": [{"text": "a paper planner", "matches": "a"}, {"text": "an app", "matches": "b"}, {"text": "calendar blocking", "matches": null}, {"text": "a weekly review habit", "matches": null}]}
+  ],
+  "tutorial": {
+    "question": "What is a good way to start running?",
+    "scenario": "Practice: ask the assistant one or two questions about starting to run, just to see how it works. Nothing here is part of the study.",
+    "options": [{"text": "a run-walk plan that builds up over weeks"}, {"text": "joining a beginners' running group"}, {"text": "getting fitted for shoes first"}, {"text": "running with a friend"}]
+  },
+  "background": [
+    {"id": "B1", "q": "What field do you work or study in?", "type": "text", "mem": "Works or studies in {v}"},
+    {"id": "B2", "q": "How do you usually get to work or school?", "type": "choice", "choices": ["walking or cycling", "public transit", "driving", "I mostly work or study from home"], "mem": "Usually gets to work or school by {v}"},
+    {"id": "B3", "q": "Where do you live?", "type": "choice", "choices": ["a big city", "a mid-sized city", "a small town or rural area"], "mem": "Lives in {v}"},
+    {"id": "B4", "q": "Do you work or study mostly in person, remotely, or a mix?", "type": "choice", "choices": ["in person", "remotely", "a mix"], "mem": "{v:Works or studies mostly in person|Works or studies mostly remotely|Works or studies partly in person and partly remotely}"},
+    {"id": "B5", "q": "Name one hobby or activity you spend time on.", "type": "text", "mem": "Spends free time on {v}"},
+    {"id": "B6", "q": "Do you own or regularly drive a car?", "type": "choice", "choices": ["yes", "no"], "mem": "{v:Owns or regularly drives a car|Does not own or regularly drive a car}"},
+    {"id": "B7", "q": "Do you have a pet?", "type": "choice", "choices": ["no", "a cat", "a dog", "another animal"], "mem": "{v:Has no pet|Has a cat|Has a dog|Has a pet}"},
+    {"id": "B8", "q": "Which device do you use most?", "type": "choice", "choices": ["a phone", "a laptop or desktop", "both about equally"], "mem": "Mostly uses {v}"}
+  ],
+  "aiUse": {
+    "freq": {"q": "How often do you use AI assistants such as ChatGPT?", "choices": ["monthly or less", "weekly", "several times a week", "daily"]},
+    "memory": {"q": "Have you used a memory feature in an AI assistant (one that remembers things about you across chats)?", "choices": ["yes", "no", "not sure"]}
+  }
+}

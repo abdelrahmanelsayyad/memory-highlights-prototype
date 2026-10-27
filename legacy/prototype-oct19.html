@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Memory Highlights Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;1,7..72,400&display=swap">
+<style>
+/*
+  Two worlds on one page.
+  Backstage: a graphite band of researcher controls across the full width (never shown to participants).
+  Onstage: a white study sheet, left-aligned, where the assistant's answers are set in a reading serif
+  because participants are asked to read and judge them. The one loud element is the highlighter.
+  Deliberately light-only: a highlighter on white paper is the idea being tested.
+*/
+:root {
+  --page: #e9ece8;
+  --sheet: #ffffff;
+  --sheet-2: #f7f8f6;
+  --ink: #1d2320;
+  --quiet: #5b645f;
+  --faint: #8b938e;
+  --rule: #d5dad4;
+  --rule-soft: #e6e9e5;
+  --spruce: #21574a;
+  --spruce-deep: #173f36;
+  --spruce-tint: #e4eeea;
+  --marker: #ffe24d;
+  --marker-hot: #ffd60a;
+  --marker-edge: #c9a400;
+  --console: #1e2326;
+  --console-raise: #2a3135;
+  --console-line: #3b4448;
+  --console-ink: #e9ede9;
+  --console-quiet: #a0aaa5;
+  --rust: #9b3b22;
+  --moss: #356b3a;
+  --ui: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --read: "Literata", Georgia, "Times New Roman", serif;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--ui);
+  font-size: 15.5px;
+  line-height: 1.55;
+  padding-block: 0 8px;
+}
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+p { margin: 0; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--spruce); outline-offset: 2px; }
+
+/* Figure modes used only for paper screenshots (#...-clean, -answeronly, -ratingsonly) */
+.mode-clean .researcher, .mode-clean .foot { display: none; }
+.mode-clean .app { margin-top: 10px; }
+.mode-answeronly .ratings, .mode-answeronly .round-head, .mode-answeronly .lede { display: none; }
+.mode-ratingsonly .scenario, .mode-ratingsonly .thread, .mode-ratingsonly .lede { display: none; }
+
+/* ---------- Backstage: researcher controls ---------- */
+.researcher {
+  background: var(--console);
+  color: var(--console-ink);
+  padding-block: 18px 20px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px), calc((100% - 980px) / 2));
+  padding-right: max(16px, env(safe-area-inset-right, 0px), calc((100% - 980px) / 2));
+  display: grid;
+  gap: 16px;
+}
+.researcher :focus-visible { outline-color: var(--console-ink); }
+.researcher-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 20px; }
+.researcher h1 { font-size: 17px; font-weight: 700; letter-spacing: .005em; }
+.backstage { font-size: 13px; color: var(--console-quiet); }
+
+.steps { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 0; list-style: none; margin: 0; padding: 0; }
+.steps li { display: flex; align-items: center; }
+.steps li + li::before { content: ""; width: 18px; height: 1px; background: var(--console-line); margin-inline: 4px; }
+.step {
+  display: inline-flex; align-items: center; gap: 9px;
+  border: 0; background: transparent; color: var(--console-quiet);
+  padding: 5px 8px 5px 4px; border-radius: 7px; font-size: 13.5px; cursor: pointer;
+}
+.step .n {
+  width: 23px; height: 23px; border-radius: 50%; border: 1px solid var(--console-line);
+  display: grid; place-items: center; font-size: 12px; font-variant-numeric: tabular-nums;
+}
+.step:hover { color: var(--console-ink); }
+.step:hover .n { border-color: var(--console-quiet); }
+.step[aria-current="step"] { color: var(--console-ink); font-weight: 700; }
+.step[aria-current="step"] .n { background: var(--console-ink); border-color: var(--console-ink); color: var(--console); }
+.gap-note { font-size: 12.5px; font-style: italic; color: var(--console-quiet); padding-inline: 2px; }
+
+.toggles { display: flex; flex-wrap: wrap; gap: 14px 30px; padding-top: 14px; border-top: 1px solid var(--console-line); }
+.toggle-group { display: grid; gap: 6px; justify-items: start; }
+.eyebrow { font-size: 12.5px; color: var(--console-quiet); }
+.seg { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; border-radius: 9px; background: var(--console-raise); }
+.seg button {
+  display: inline-flex; align-items: center; gap: 7px;
+  border: 0; background: transparent; color: var(--console-quiet);
+  padding: 6px 12px; border-radius: 7px; font-size: 13.5px; cursor: pointer;
+}
+.seg button:hover { color: var(--console-ink); }
+.seg button[aria-pressed="true"] { background: var(--console-ink); color: var(--console); font-weight: 700; }
+.seg .k { font-size: 11px; line-height: 1; padding: 3px 4px; border: 1px solid currentColor; border-radius: 4px; opacity: .75; }
+.condition-note { font-size: 13.5px; line-height: 1.5; color: var(--console-quiet); max-width: 80ch; }
+
+/* ---------- Onstage: the participant's study sheet ---------- */
+.app {
+  width: min(860px, calc(100% - 2 * max(16px, env(safe-area-inset-left, 0px))));
+  margin: 28px auto 0;
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 0 rgba(29, 35, 32, .04), 0 18px 40px -26px rgba(29, 35, 32, .35);
+}
+.app-bar {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 12px 22px; background: var(--sheet-2); border-bottom: 1px solid var(--rule-soft);
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; }
+.brand-dot {
+  width: 26px; height: 26px; border-radius: 7px; background: var(--spruce); color: #fff;
+  display: grid; place-items: center; font-family: var(--read); font-weight: 600; font-size: 15px;
+}
+.session-tag { font-size: 13px; color: var(--quiet); font-variant-numeric: tabular-nums; }
+.app-body { padding: 28px 20px 32px; display: grid; gap: 22px; }
+@media (min-width: 700px) { .app-body { padding: 36px 44px 40px; } }
+
+.screen-title { font-family: var(--read); font-weight: 600; font-size: 25px; line-height: 1.22; letter-spacing: -.005em; }
+.lede { color: var(--quiet); max-width: 62ch; }
+
+/* Progress */
+.progress { display: grid; gap: 8px; }
+.round-count { font-size: 13px; color: var(--quiet); font-variant-numeric: tabular-nums; }
+.bar { height: 4px; border-radius: 2px; background: var(--rule-soft); overflow: hidden; }
+.bar span { display: block; height: 100%; background: var(--spruce); }
+.round-head { display: grid; gap: 10px; }
+.round-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.ticks { display: flex; gap: 3px; }
+.ticks i { width: 13px; height: 4px; border-radius: 2px; background: var(--rule); }
+.ticks i.done { background: #9fbab1; }
+.ticks i.now { background: var(--spruce); width: 22px; }
+
+/* Questionnaire */
+.q { display: grid; gap: 12px; padding-top: 22px; border-top: 1px solid var(--rule-soft); }
+.q-kind { font-size: 13px; font-weight: 700; color: var(--spruce); }
+.q-label { font-size: 16px; font-weight: 700; }
+
+/* One segmented scale instead of a row of radio dots */
+.scale {
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); max-width: 476px;
+  border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; background: var(--sheet);
+}
+.scale.five { grid-template-columns: repeat(5, minmax(0, 1fr)); max-width: 340px; }
+.scale label {
+  position: relative; display: grid; place-items: center; height: 42px;
+  border-left: 1px solid var(--rule); font-size: 14.5px; font-variant-numeric: tabular-nums; cursor: pointer;
+}
+.scale label:first-child { border-left: 0; }
+.scale input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.scale label:hover { background: var(--spruce-tint); }
+.scale label:has(input:checked) { background: var(--spruce); color: #fff; font-weight: 700; }
+.scale label:has(input:focus-visible) { outline: 2px solid var(--spruce); outline-offset: -4px; }
+.scale label:has(input:checked:focus-visible) { outline-color: #fff; }
+.scale-ends { display: flex; justify-content: space-between; max-width: 476px; margin-top: -4px; font-size: 12.5px; color: var(--quiet); }
+.scale-ends.five { max-width: 340px; }
+
+/* Option buttons and custom radios */
+.choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 10px; padding: 9px 16px 9px 12px;
+  border: 1px solid var(--rule); border-radius: 8px; background: var(--sheet); font-size: 15px; cursor: pointer;
+}
+.chip:hover { border-color: var(--faint); }
+.chip:has(input:checked) { border-color: var(--spruce); background: var(--spruce-tint); }
+.chip input, .followups input, .mem-item .yn input {
+  appearance: none; -webkit-appearance: none; flex: none; margin: 0;
+  width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--faint);
+  display: grid; place-items: center; background: var(--sheet); cursor: pointer;
+}
+.chip input::before, .followups input::before, .mem-item .yn input::before {
+  content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--spruce); transform: scale(0);
+}
+.chip input:checked, .followups input:checked, .mem-item .yn input:checked { border-color: var(--spruce); }
+.chip input:checked::before, .followups input:checked::before, .mem-item .yn input:checked::before { transform: scale(1); }
+.chip:has(input:focus-visible), .followups label:has(input:focus-visible), .mem-item .yn label:has(input:focus-visible) { outline: 2px solid var(--spruce); outline-offset: 2px; }
+.chip input:focus-visible, .followups input:focus-visible, .mem-item .yn input:focus-visible { outline: none; }
+
+.text-in {
+  width: 100%; max-width: 380px; padding: 10px 12px; font: inherit; color: var(--ink);
+  background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px;
+}
+.text-in:focus { outline: none; border-color: var(--spruce); box-shadow: 0 0 0 3px var(--spruce-tint); }
+
+.actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding-top: 6px; }
+.btn {
+  padding: 10px 20px; border: 1px solid var(--spruce); border-radius: 8px;
+  background: var(--spruce); color: #fff; font-weight: 700; font-size: 15px; cursor: pointer;
+}
+.btn:hover { background: var(--spruce-deep); border-color: var(--spruce-deep); }
+.btn.ghost { background: transparent; color: var(--spruce); }
+.btn.ghost:hover { background: var(--spruce-tint); }
+
+/* Memory review */
+.mem-groups { display: grid; gap: 28px; }
+@media (min-width: 760px) { .mem-groups { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 26px; } }
+.mem-group { display: grid; align-content: start; min-width: 0; }
+.mem-group h3 { font-family: var(--read); font-weight: 600; font-size: 17px; padding-bottom: 8px; border-bottom: 2px solid var(--ink); }
+.mem-item { display: grid; gap: 9px; padding: 12px 0; border-bottom: 1px solid var(--rule-soft); }
+.mem-item p { font-size: 15px; }
+.mem-item .yn { display: flex; flex-wrap: wrap; gap: 16px; }
+.mem-item .yn label { display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; color: var(--quiet); cursor: pointer; border-radius: 4px; }
+.mem-item .yn label:has(input:checked) { color: var(--ink); font-weight: 700; }
+.mem-item .yn label + label input:checked { border-color: var(--rust); }
+.mem-item .yn label + label input::before { background: var(--rust); }
+
+/* The question and the answer */
+.scenario { font-family: var(--read); font-style: italic; font-size: 16px; color: var(--quiet); max-width: 64ch; }
+.scenario b { font-family: var(--ui); font-style: normal; font-weight: 700; font-size: 13px; color: var(--ink); margin-right: 4px; }
+.thread { display: grid; gap: 20px; }
+.msg-user {
+  justify-self: end; max-width: min(80%, 500px); padding: 11px 16px;
+  border-radius: 18px 18px 4px 18px; background: var(--spruce); color: #fff;
+}
+.msg-ai { position: relative; display: grid; gap: 14px; padding-left: 46px; min-width: 0; }
+.ai-label {
+  position: absolute; left: 0; top: 3px; width: 30px; height: 30px; border-radius: 8px;
+  background: var(--spruce-tint); color: var(--spruce); display: grid; place-items: center;
+  font-size: 0; overflow: hidden;
+}
+.ai-label::before { content: "A"; font-family: var(--read); font-weight: 600; font-size: 15px; }
+.msg-ai p, .msg-ai li { font-family: var(--read); font-size: 17px; line-height: 1.68; max-width: 64ch; }
+.msg-ai ol { margin: 0; padding-left: 1.3em; display: grid; gap: 8px; }
+.msg-ai li::marker { font-family: var(--ui); font-size: 14px; color: var(--quiet); }
+
+/* The highlighter: an uneven marker stroke that draws in */
+mark.mem {
+  color: inherit;
+  background-color: transparent;
+  background-image: linear-gradient(var(--marker), var(--marker));
+  background-repeat: no-repeat;
+  background-position: 0 60%;
+  background-size: 100% 80%;
+  padding: 0 .14em;
+  margin: 0 -.06em;
+  border-radius: .32em .55em .38em .6em / .6em .35em .55em .32em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  cursor: help;
+}
+mark.mem:hover, mark.mem.active { background-image: linear-gradient(var(--marker-hot), var(--marker-hot)); box-shadow: inset 0 -2px 0 var(--marker-edge); }
+mark.mem:focus-visible { outline: 2px solid var(--marker-edge); outline-offset: 1px; }
+@media (prefers-reduced-motion: no-preference) {
+  mark.mem { animation: stroke .6s cubic-bezier(.3, .7, .2, 1) both; }
+  mark.mem + mark.mem, p + p mark.mem, li + li mark.mem { animation-delay: .12s; }
+  @keyframes stroke { from { background-size: 0% 80%; } to { background-size: 100% 80%; } }
+  .tip { animation: tip-in .16s ease-out; }
+  @keyframes tip-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+}
+.legend {
+  display: flex; align-items: center; gap: 10px; padding-top: 12px; border-top: 1px dashed var(--rule);
+  font-size: 13.5px; color: var(--quiet); max-width: 64ch;
+}
+.legend .swatch { flex: none; width: 28px; height: 12px; background: var(--marker); border-radius: 3px 7px 4px 8px / 7px 4px 6px 3px; }
+
+.tip {
+  position: absolute; z-index: 5; width: min(330px, calc(100% - 16px));
+  display: grid; gap: 4px; padding: 12px 14px;
+  background: var(--sheet); color: var(--ink); border: 1px solid var(--rule); border-radius: 10px;
+  box-shadow: 0 16px 32px -14px rgba(29, 35, 32, .38);
+  font-size: 13.5px; line-height: 1.45;
+}
+.tip::before {
+  content: ""; position: absolute; top: -6px; left: 18px; width: 10px; height: 10px;
+  background: var(--sheet); border-left: 1px solid var(--rule); border-top: 1px solid var(--rule); transform: rotate(45deg);
+}
+.tip .tip-k { font-size: 12.5px; font-weight: 700; color: var(--spruce); }
+.tip > span:nth-child(2) { font-family: var(--read); font-style: italic; font-size: 15px; }
+.tip .tip-src { font-size: 12.5px; color: var(--quiet); }
+
+/* Ratings: a form section under the answer, not a box */
+.ratings { display: grid; gap: 24px; padding-top: 26px; border-top: 1px solid var(--rule); }
+.ratings h3 { font-family: var(--read); font-weight: 600; font-size: 19px; }
+.rate { display: grid; gap: 10px; }
+.rate-q { font-size: 15.5px; font-weight: 700; max-width: 62ch; }
+.hint { margin-top: -4px; font-size: 13.5px; color: var(--quiet); }
+.followups { display: grid; gap: 2px; }
+.followups label {
+  display: flex; align-items: center; gap: 11px; margin-left: -10px; padding: 8px 10px;
+  border-radius: 8px; font-size: 15px; cursor: pointer;
+}
+.followups label:hover { background: var(--sheet-2); }
+.followups label:has(input:checked) { background: var(--spruce-tint); }
+
+/* Debrief */
+.table-scroll { overflow-x: auto; border-top: 2px solid var(--ink); }
+table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 14.5px; }
+th { padding: 10px 12px 8px; text-align: left; font-size: 13px; font-weight: 700; color: var(--quiet); border-bottom: 1px solid var(--rule); }
+td { padding: 12px; vertical-align: top; border-bottom: 1px solid var(--rule-soft); }
+td.num { width: 64px; color: var(--quiet); font-variant-numeric: tabular-nums; }
+.pill { display: inline-flex; align-items: center; gap: 6px; margin-right: 6px; font-weight: 700; font-size: 13.5px; }
+.pill::before { content: ""; width: 8px; height: 8px; border-radius: 2px; background: currentColor; }
+.pill.slanted { color: var(--rust); }
+.pill.balanced { color: var(--moss); }
+.link-btn {
+  padding: 0; border: 0; background: none; color: var(--spruce); font-size: 14px; white-space: nowrap;
+  text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; cursor: pointer;
+}
+.bal-row td { padding: 0 12px 14px; background: var(--sheet-2); }
+.bal-box { display: grid; gap: 10px; padding: 12px 14px; border-left: 3px solid var(--moss); font-size: 14.5px; }
+.bal-box p, .bal-box ol { margin: 0; }
+.bal-box ol { padding-left: 20px; display: grid; gap: 4px; }
+.bal-head { font-size: 12.5px; font-weight: 700; color: var(--moss); letter-spacing: .02em; }
+
+.foot {
+  width: min(860px, calc(100% - 32px)); margin: 18px auto 32px;
+  font-size: 13px; color: var(--quiet); text-align: center;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .step, .seg button, .chip, .scale label, .btn, .followups label { transition: background-color .15s, border-color .15s, color .15s; }
+  .chip input::before, .followups input::before, .mem-item .yn input::before { transition: transform .12s ease-out; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="researcher" aria-label="Researcher controls">
+    <div class="researcher-head">
+      <h1>Memory Highlights Prototype</h1>
+      <span class="backstage">Researcher controls, not shown to participants</span>
+    </div>
+    <ol class="steps" id="steps">
+      <li><button class="step" data-screen="profile"><span class="n">1</span>Profile questionnaire</button></li>
+      <li class="gap-note">2&ndash;4 days later</li>
+      <li><button class="step" data-screen="memory"><span class="n">2</span>Memory review</button></li>
+      <li><button class="step" data-screen="partA"><span class="n">3</span>Part A: rate trust &times;16</button></li>
+      <li><button class="step" data-screen="partB"><span class="n">4</span>Part B: judge bias &times;16</button></li>
+      <li><button class="step" data-screen="debrief"><span class="n">5</span>Debrief</button></li>
+    </ol>
+    <div class="toggles" id="roundToggles">
+      <div class="toggle-group">
+        <span class="eyebrow">Version (one per participant)</span>
+        <div class="seg" role="group" aria-label="Version">
+          <button id="v-hl" data-k="version" data-v="hl">Highlights</button>
+          <button id="v-plain" data-k="version" data-v="plain">No highlights</button>
+        </div>
+      </div>
+      <div class="toggle-group">
+        <span class="eyebrow">Answer type (each participant sees both)</span>
+        <div class="seg" role="group" aria-label="Answer type">
+          <button id="t-balanced" data-k="type" data-v="balanced">Balanced</button>
+          <button id="t-biased" data-k="type" data-v="biased">Biased</button>
+        </div>
+      </div>
+      <div class="toggle-group">
+        <span class="eyebrow">Example question</span>
+        <div class="seg" role="group" aria-label="Example question">
+          <button id="e-a" data-k="ex" data-v="a"><span class="k">A</span>Opinion (sycophantic)</button>
+          <button id="e-b" data-k="ex" data-v="b"><span class="k">B</span>Preference (narrowed)</button>
+        </div>
+      </div>
+    </div>
+    <p class="condition-note" id="conditionNote"></p>
+  </section>
+
+  <section class="app" aria-label="Participant view">
+    <div class="app-bar">
+      <div class="brand"><span class="brand-dot" aria-hidden="true">A</span>Assistant</div>
+      <span class="session-tag" id="sessionTag"></span>
+    </div>
+    <div class="app-body" id="screen"></div>
+  </section>
+
+  <p class="foot">Prototype for CMPUT 656 term project. Answers are example study materials; facts are summarized for illustration and will be checked before use.</p>
+</div>
+
+<script>
+(function () {
+  var MEM = {
+    m4day: { text: "Strongly agrees companies should move to a four-day work week", src: "Your answer in Session 1, opinion item 1" },
+    mmkt: { text: "Works in marketing", src: "Your answer in Session 1, background item 2" },
+    mvid: { text: "Strongly prefers learning from videos over reading", src: "Your answer in Session 1, preference item 13" },
+  };
+
+  // Each answer: list of blocks. A block is {p: [segments]} or {ol: [[segments], ...]}. A segment is a string or [memoryId, text].
+  // Rule: every answer applies a remembered detail in exactly two sentences, and only those two are highlighted.
+  var EX = {
+    a: {
+      round: 3,
+      scenario: "Your team has been stretched thin, and your manager has asked for ideas.",
+      question: "What could help my team reduce burnout without hurting productivity?",
+      balanced: [
+        { p: [["m4day", "You have said you favour a four-day week; it is a reasonable option to raise, but the evidence for it is still mixed."], " A few approaches have reasonable evidence behind them. Clearer priorities and fewer meetings can free up focused time, and flexible hours let people work when they are most productive."] },
+        { p: ["Some employers have also tried shorter working weeks: in large trials in the UK and Iceland, most kept the shorter hours and staff reported less burnout, but the UK companies volunteered to take part, and some employees said they squeezed the same work into fewer, more intense days."] },
+        { p: [["mmkt", "For a marketing team like yours, check whether client deadlines could still be met with fewer weekly hours."], " A short trial is a good start."] }
+      ],
+      biased: [
+        { p: [["m4day", "Since you support a four-day week, you are on the right track: it is the best answer to burnout."], " In large trials in the UK and Iceland, most employers kept the shorter hours, staff reported less burnout, and productivity held steady, which suggests the five-day week is more habit than necessity."] },
+        { p: ["Many companies in the UK trial also reported that fewer staff quit. Other fixes, such as fewer meetings or flexible hours, are half-measures by comparison, and worries about covering client hours can usually be solved with simple scheduling changes."] },
+        { p: [["mmkt", "For a marketing team like yours, a four-day week could boost creativity and help attract talent."], " It is well worth proposing to your manager."] }
+      ]
+    },
+    b: {
+      round: 7,
+      scenario: "You need basic statistics for a course that starts next month.",
+      question: "What are good ways to learn basic statistics in a month?",
+      balanced: [
+        { p: ["A mix of approaches usually works best."] },
+        { ol: [
+          [["mvid", "Video lessons: since you like learning from videos, start with Khan Academy's free statistics unit."]],
+          ["A free textbook: OpenIntro Statistics has worked examples you can follow at your own pace."],
+          ["Practice problems: doing exercises every day matters more than any single resource."],
+          ["A study partner or tutor: explaining ideas out loud helps them stick and catches mistakes early."]
+        ] },
+        { p: [["mvid", "Since videos suit you, pair each video with about 30 minutes of practice problems."]] }
+      ],
+      biased: [
+        { p: [["mvid", "Since you learn best from videos, here are the best video options for you."]] },
+        { ol: [
+          ["Khan Academy's statistics unit: short videos that build from the basics."],
+          ["StatQuest on YouTube: clear, friendly explanations of key ideas."],
+          ["Crash Course Statistics on YouTube: a fast overview in short episodes."],
+          ["A video-based online course, such as one on Coursera, if you want more structure."]
+        ] },
+        { p: [["mvid", "Watching one or two of these videos a day should give you the basics within a month."]] }
+      ]
+    }
+  };
+
+  var state = { screen: "partA", version: "hl", type: "biased", ex: "a", tip: false };
+
+  // Plain hash tokens, e.g. #partA-a-biased-hl-tip, #partB-b-balanced-plain, #memory, #profile, #debrief
+  function readHash() {
+    var h = (location.hash || "").replace(/^#/, "");
+    if (!h) return;
+    var parts = h.split("-");
+    if (["profile", "memory", "partA", "partB", "debrief"].indexOf(parts[0]) >= 0) state.screen = parts[0];
+    parts.forEach(function (p) {
+      if (p === "a" || p === "b") state.ex = p;
+      if (p === "biased" || p === "balanced") state.type = p;
+      if (p === "hl" || p === "plain") state.version = p;
+      if (p === "tip") state.tip = true;
+      if (p === "clean" || p === "answeronly" || p === "ratingsonly") document.documentElement.classList.add("mode-" + p);
+    });
+  }
+
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+
+  function segs(list) {
+    return list.map(function (s) {
+      if (typeof s === "string") return esc(s);
+      if (state.version === "hl") return '<mark class="mem" tabindex="0" data-mem="' + s[0] + '">' + esc(s[1]) + "</mark>";
+      return esc(s[1]);
+    }).join("");
+  }
+
+  function answerHtml(blocks) {
+    return blocks.map(function (b) {
+      if (b.p) return "<p>" + segs(b.p) + "</p>";
+      return "<ol>" + b.ol.map(function (it) { return "<li>" + segs(it) + "</li>"; }).join("") + "</ol>";
+    }).join("");
+  }
+
+  function plainSegs(list) { return list.map(function (s) { return esc(typeof s === "string" ? s : s[1]); }).join(""); }
+  function plainHtml(blocks) {
+    return blocks.map(function (b) {
+      if (b.p) return "<p>" + plainSegs(b.p) + "</p>";
+      return "<ol>" + b.ol.map(function (it) { return "<li>" + plainSegs(it) + "</li>"; }).join("") + "</ol>";
+    }).join("");
+  }
+
+  function scale(name, n, left, right, picked) {
+    var labels = "";
+    for (var i = 1; i <= n; i++) {
+      labels += '<label for="' + name + i + '"><input type="radio" id="' + name + i + '" name="' + name + '" value="' + i + '"' + (picked === i ? " checked" : "") + ">" + i + "</label>";
+    }
+    var cls = n === 5 ? " five" : "";
+    return '<div class="scale' + cls + '">' + labels + '</div><div class="scale-ends' + cls + '"><span>' + left + "</span><span>" + right + "</span></div>";
+  }
+
+  function ticks(n) {
+    var s = "";
+    for (var i = 1; i <= 16; i++) s += '<i class="' + (i < n ? "done" : i === n ? "now" : "") + '"></i>';
+    return '<span class="ticks" aria-hidden="true">' + s + "</span>";
+  }
+
+  function answerBlock() {
+    var ex = EX[state.ex];
+    var legend = state.version === "hl"
+      ? '<div class="legend"><span class="swatch" aria-hidden="true"></span><span>Highlighted sentences are where I used something I remember about you. Hover over or tap one to see which memory it used.</span></div>'
+      : "";
+    return '<div class="scenario"><b>Scenario:</b> ' + esc(ex.scenario) + "</div>" +
+      '<div class="thread"><div class="msg-user">' + esc(ex.question) + "</div>" +
+      '<div class="msg-ai" id="answer"><span class="ai-label">Assistant</span>' + answerHtml(ex[state.type]) + legend + "</div></div>";
+  }
+
+  var screens = {
+    profile: function () {
+      return '<div class="progress"><span class="round-count">Item 13 of 32</span><div class="bar"><span style="width:40%"></span></div></div>' +
+        '<h2 class="screen-title">Tell us about your views and preferences</h2>' +
+        '<p class="lede">There are no right answers. The assistant you will use in the next session will remember what you say here.</p>' +
+        '<div class="q"><span class="q-kind">Opinion</span><p class="q-label">Companies should move to a four-day work week.</p>' + scale("op1", 7, "Strongly disagree", "Strongly agree", 7) +
+        '<p class="q-label" style="margin-top:6px">How important is this issue to you?</p>' + scale("imp1", 5, "Not at all", "Extremely", 5) + "</div>" +
+        '<div class="q"><span class="q-kind">Preference</span><p class="q-label">For learning new material, I prefer:</p><div class="choices">' +
+        '<label class="chip" for="pr1a"><input type="radio" id="pr1a" name="pr1" checked>Videos</label>' +
+        '<label class="chip" for="pr1b"><input type="radio" id="pr1b" name="pr1">Reading</label></div>' +
+        '<p class="q-label" style="margin-top:6px">How strongly?</p><div class="choices">' +
+        '<label class="chip" for="st1"><input type="radio" id="st1" name="st">Slightly</label>' +
+        '<label class="chip" for="st2"><input type="radio" id="st2" name="st">Moderately</label>' +
+        '<label class="chip" for="st3"><input type="radio" id="st3" name="st" checked>Strongly</label></div></div>' +
+        '<div class="q"><span class="q-kind">Background</span><label class="q-label" for="field">What field do you work or study in?</label><input class="text-in" id="field" value="Marketing"></div>' +
+        '<div class="actions"><button class="btn" data-go="memory">Next</button></div>';
+    },
+    memory: function () {
+      function item(id, text) {
+        return '<div class="mem-item"><p>' + esc(text) + '</p><div class="yn">' +
+          '<label for="' + id + 'y"><input type="radio" id="' + id + 'y" name="' + id + '" checked>Correct</label>' +
+          '<label for="' + id + 'n"><input type="radio" id="' + id + 'n" name="' + id + '">Not quite</label></div></div>';
+      }
+      return '<h2 class="screen-title">Here is what I remember about you</h2>' +
+        '<p class="lede">I will use this to tailor my answers today. Mark anything that is not right.</p>' +
+        '<div class="mem-groups">' +
+        '<div class="mem-group"><h3>Background</h3>' + item("mb1", "Works in marketing") + item("mb2", "Commutes by public transit") + item("mb3", "Lives in a mid-sized city") + "</div>" +
+        '<div class="mem-group"><h3>Opinions</h3>' + item("mo1", "Strongly agrees companies should move to a four-day work week (very important to you)") + item("mo2", "Somewhat agrees phones should be banned in schools") + item("mo3", "Somewhat disagrees that stores should be allowed to refuse cash") + "</div>" +
+        '<div class="mem-group"><h3>Preferences</h3>' + item("mp1", "Strongly prefers learning from videos over reading") + item("mp2", "Prefers city trips to nature trips") + item("mp3", "Stays organized with apps rather than a paper planner") + "</div>" +
+        "</div>" +
+        '<div class="actions"><button class="btn" data-go="partA">Start</button></div>';
+    },
+    partA: function () {
+      var ex = EX[state.ex];
+      return '<div class="round-head"><h2 class="screen-title">Ask the assistant</h2><div class="round-meta"><span class="round-count">Part A</span>' + ticks(ex.round) + '<span class="round-count">Answer ' + ex.round + " of 16</span></div></div>" +
+        answerBlock() +
+        '<div class="ratings"><h3>About this answer</h3>' +
+        '<div class="rate"><p class="rate-q">I trust this answer.</p>' + scale("tr1", 7, "Strongly disagree", "Strongly agree") + "</div>" +
+        '<div class="rate"><p class="rate-q">This answer is accurate.</p>' + scale("tr2", 7, "Strongly disagree", "Strongly agree") + "</div>" +
+        '<div class="rate"><p class="rate-q">I would rely on this answer if I had to decide something about this topic.</p>' + scale("tr3", 7, "Strongly disagree", "Strongly agree") + "</div>" +
+        '<div class="rate"><p class="rate-q">If this were a real decision, what would you do next?</p><div class="followups">' +
+        '<label for="fu1"><input type="radio" id="fu1" name="fu">Accept the answer as it is</label>' +
+        '<label for="fu2"><input type="radio" id="fu2" name="fu">Ask for more detail</label>' +
+        '<label for="fu3"><input type="radio" id="fu3" name="fu">Check another source before deciding</label></div></div>' +
+        '<div class="actions"><button class="btn" data-next="1">Next answer</button></div></div>';
+    },
+    partB: function () {
+      var ex = EX[state.ex];
+      return '<div class="round-head"><h2 class="screen-title">Look at each answer again</h2><div class="round-meta"><span class="round-count">Part B</span>' + ticks(ex.round) + '<span class="round-count">Answer ' + ex.round + " of 16</span></div></div>" +
+        '<p class="lede">You will now see the same 16 answers again. For each one, tell us how fair it was.</p>' +
+        answerBlock() +
+        '<div class="ratings"><h3>Judging this answer</h3>' +
+        '<div class="rate"><p class="rate-q">Does this answer give a one-sided picture that favours your own views or preferences?</p>' +
+        '<p class="hint">Using your details to pick examples does not count as one-sided.</p><div class="choices">' +
+        '<label class="chip" for="os-y"><input type="radio" id="os-y" name="os">Yes</label>' +
+        '<label class="chip" for="os-n"><input type="radio" id="os-n" name="os">No</label></div></div>' +
+        '<div class="rate"><p class="rate-q">How balanced is this answer?</p>' + scale("bal", 7, "Very one-sided", "Very balanced") + "</div>" +
+        '<div class="rate"><p class="rate-q">This answer used what the assistant remembers about me.</p>' + scale("per", 7, "Strongly disagree", "Strongly agree") + "</div>" +
+        '<div class="rate"><p class="rate-q">Would you like the assistant to answer this again without using what it remembers about you?</p><div class="choices">' +
+        '<label class="chip" for="nm-y"><input type="radio" id="nm-y" name="nm">Yes</label>' +
+        '<label class="chip" for="nm-n"><input type="radio" id="nm-n" name="nm">No</label></div></div>' +
+        '<div class="actions"><button class="btn" data-next="1">Next answer</button></div></div>';
+    },
+    debrief: function () {
+      var rows = [
+        [1, "Starting a new job: home or office?", "Opinion", "balanced"],
+        [3, "Reducing burnout on your team", "Opinion", "biased", "a"],
+        [5, "Furnishing a new apartment", "Preference", "balanced"],
+        [7, "Learning basic statistics", "Preference", "biased", "b"],
+        [9, "Phones in school", "Opinion", "balanced"],
+        [12, "Choosing a new laptop", "Preference", "balanced"]
+      ];
+      var body = rows.map(function (r) {
+        var kind = r[3] === "biased" ? (r[2] === "Opinion" ? "Took your side and played down the other" : "Only showed options that match your taste") : "Covered the main sides or options";
+        return '<tr><td class="num">' + r[0] + "</td><td>" + r[1] + "</td><td>" + r[2] + '</td><td><span class="pill ' + (r[3] === "biased" ? "slanted" : "balanced") + '">' + (r[3] === "biased" ? "Biased" : "Balanced") + "</span> " + kind + '</td><td>' + (r[4] ? '<button class="link-btn" data-bal="' + r[4] + '" aria-expanded="false" aria-controls="bal-' + r[4] + '">See balanced version</button>' : "") + "</td></tr>" +
+          (r[4] ? '<tr class="bal-row" id="bal-' + r[4] + '" hidden><td colspan="5"><div class="bal-box"><span class="bal-head">Balanced version of answer ' + r[0] + '</span>' + plainHtml(EX[r[4]].balanced) + "</div></td></tr>" : "");
+      }).join("");
+      return '<h2 class="screen-title">Thank you. Here is what we were studying.</h2>' +
+        '<p class="lede">To learn whether people notice when an AI assistant tells them what they want to hear, we deliberately biased half of the 16 answers toward the views and preferences you gave us. A biased answer either took your side on a debated topic or only offered options that match your tastes. The table shows six of your answers; you can read a balanced version of every biased answer.</p>' +
+        '<div class="table-scroll"><table><thead><tr><th>Answer</th><th>Topic</th><th>Type</th><th>What the answer did</th><th></th></tr></thead><tbody>' + body + "</tbody></table></div>" +
+        '<p class="lede">You may withdraw your data now without losing payment.</p>' +
+        '<div class="actions"><button class="btn ghost">Withdraw my data</button><button class="btn">Finish and return to Prolific</button></div>';
+    }
+  };
+
+  var tipEl = null, pinned = null;
+
+  function hideTip() { if (tipEl) { tipEl.remove(); tipEl = null; } document.querySelectorAll("mark.mem.active").forEach(function (m) { m.classList.remove("active"); }); }
+
+  function showTip(mark) {
+    hideTip();
+    var host = document.getElementById("answer");
+    if (!host) return;
+    var mem = MEM[mark.getAttribute("data-mem")];
+    tipEl = document.createElement("div");
+    tipEl.className = "tip";
+    tipEl.setAttribute("role", "tooltip");
+    tipEl.innerHTML = '<span class="tip-k">Used your memory</span><span>&ldquo;' + esc(mem.text) + '&rdquo;</span>' + (mem.note ? "<span>" + esc(mem.note) + "</span>" : "") + '<span class="tip-src">' + esc(mem.src) + "</span>";
+    host.appendChild(tipEl);
+    mark.classList.add("active");
+    var hb = host.getBoundingClientRect(), rects = mark.getClientRects();
+    var mb = rects[0] || mark.getBoundingClientRect(), last = rects[rects.length - 1] || mb;
+    var w = tipEl.offsetWidth;
+    var left = Math.min(Math.max(8, mb.left - hb.left), hb.width - w - 8);
+    tipEl.style.left = Math.max(8, left) + "px";
+    tipEl.style.top = (last.bottom - hb.top + 10) + "px";
+  }
+
+  function render() {
+    document.getElementById("screen").innerHTML = screens[state.screen]();
+    document.querySelectorAll(".step").forEach(function (b) {
+      if (b.getAttribute("data-screen") === state.screen) b.setAttribute("aria-current", "step"); else b.removeAttribute("aria-current");
+    });
+    document.querySelectorAll(".seg button").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(state[b.getAttribute("data-k")] === b.getAttribute("data-v")));
+    });
+    var onAnswer = state.screen === "partA" || state.screen === "partB";
+    document.getElementById("roundToggles").hidden = !onAnswer;
+    var versionNote = state.version === "hl"
+      ? " Highlight version: every answer has exactly two highlighted sentences where a remembered detail was used, so the amount of highlighting should not give away the answer type."
+      : " No-highlight version: the same answer text with no marks, which is how memory-enabled assistants usually look.";
+    var note = {
+      profile: "Session 1, about 10 minutes. 32 items: 12 opinions, 12 preferences, 8 background facts. Answers become the memory profile.",
+      memory: "Session 2 opens here. Both groups see their memory profile, so both know the assistant remembers them. Items marked “Not quite” are not used.",
+      partA: "Part A: participants read all 16 answers and rate trust only. Nothing here mentions bias, so trust ratings are not shaped by the bias question." + versionNote,
+      partB: "Part B: the same 16 answers again, now with the bias question. This measures detection when people are asked to look for bias." + versionNote,
+      debrief: "Required because biased answers are a mild form of deception. Shows which answers were biased and offers the balanced versions."
+    }[state.screen];
+    document.getElementById("conditionNote").textContent = note;
+    document.getElementById("sessionTag").textContent = state.screen === "profile" ? "Session 1 of 2" : "Session 2 of 2";
+    pinned = null;
+    if (onAnswer && state.version === "hl" && state.tip) {
+      var first = document.querySelector("mark.mem");
+      if (first) { requestAnimationFrame(function () { showTip(first); pinned = first; }); }
+    }
+  }
+
+  document.addEventListener("click", function (e) {
+    var bal = e.target.closest("[data-bal]");
+    if (bal) {
+      var balRow = document.getElementById("bal-" + bal.getAttribute("data-bal"));
+      var opening = balRow.hasAttribute("hidden");
+      if (opening) balRow.removeAttribute("hidden"); else balRow.setAttribute("hidden", "");
+      bal.setAttribute("aria-expanded", String(opening));
+      bal.textContent = opening ? "Hide balanced version" : "See balanced version";
+      return;
+    }
+    var step = e.target.closest(".step");
+    if (step) { state.screen = step.getAttribute("data-screen"); state.tip = false; render(); return; }
+    var seg = e.target.closest(".seg button");
+    if (seg) { state[seg.getAttribute("data-k")] = seg.getAttribute("data-v"); state.tip = false; render(); return; }
+    var go = e.target.closest("[data-go]");
+    if (go) { state.screen = go.getAttribute("data-go"); state.tip = false; render(); window.scrollTo({ top: 0 }); return; }
+    var next = e.target.closest("[data-next]");
+    if (next) { state.ex = state.ex === "a" ? "b" : "a"; state.tip = false; render(); return; }
+    var mark = e.target.closest("mark.mem");
+    if (mark) { if (pinned === mark) { pinned = null; hideTip(); } else { pinned = mark; showTip(mark); } return; }
+    if (!e.target.closest(".tip")) { pinned = null; hideTip(); }
+  });
+  document.addEventListener("mouseover", function (e) { var m = e.target.closest && e.target.closest("mark.mem"); if (m && !pinned) showTip(m); });
+  document.addEventListener("mouseout", function (e) { var m = e.target.closest && e.target.closest("mark.mem"); if (m && !pinned) hideTip(); });
+  document.addEventListener("focusin", function (e) { if (e.target.matches && e.target.matches("mark.mem")) showTip(e.target); });
+  document.addEventListener("focusout", function (e) { if (e.target.matches && e.target.matches("mark.mem") && !pinned) hideTip(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") { pinned = null; hideTip(); } });
+  window.addEventListener("resize", function () { if (pinned) showTip(pinned); });
+
+  readHash();
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Researcher page</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .wrap { width: min(1100px, calc(100% - 32px)); }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
+  .row input[type=text] { width: 140px; }
+  .status { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .status.live { background: #d9efe4; color: var(--moss); } .status.demo { background: #fff0b3; color: #7a5a00; }
+  pre { background: var(--sheet-2); border: 1px solid var(--rule-soft); border-radius: 8px; padding: 10px; font-size: 12.5px; overflow: auto; max-height: 420px; }
+  select { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--rule); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="card-head"><div class="brand"><span class="a">R</span> Researcher page</div><div class="tag" id="mode"></div></div>
+    <div class="body">
+      <div id="keybox" hidden class="row"><input type="text" id="key" placeholder="Researcher key"><button class="btn small" id="setkey">Use key</button><span class="muted">The server has RESEARCHER_KEY set.</span></div>
+      <p class="muted" id="meta"></p>
+      <div class="row"><input type="text" id="newpid" placeholder="New code, e.g. P1"><button class="btn small" id="create">Create participant</button><span class="err" id="err"></span></div>
+      <p class="muted">Participants open <code id="base"></code> and enter their code. Version order and topic sets follow Table 2 of the report: P1 and P5 highlights first, A then B; P2 and P6 no highlights first, A then B; P3 highlights first, B then A; P4 no highlights first, B then A. P0 is the pilot.</p>
+      <table><thead><tr><th>Code</th><th>Stage</th><th>Order</th><th>Sets</th><th>Eligible</th><th>Topics</th><th>Memory</th><th>Turns</th><th></th></tr></thead><tbody id="rows"></tbody></table>
+      <div id="detail" hidden>
+        <h3 id="dtitle"></h3>
+        <div class="row">
+          <label>Opinion A <select id="oA"></select></label><label>Opinion B <select id="oB"></select></label>
+          <label>Preference A <select id="pA"></select></label><label>Preference B <select id="pB"></select></label>
+          <button class="btn small ghost" id="override">Set topics (allows an ineligible participant)</button>
+        </div>
+        <div class="row"><button class="btn small" id="starts2">Start Session 2</button><a class="btn small ghost" id="export" href="#" download>Download JSON export</a><button class="btn small ghost" id="reset2">Reset Session 2</button><button class="btn small ghost" id="resetall">Reset everything</button></div>
+        <pre id="dump"></pre>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  const $ = s => document.querySelector(s);
+  let key = localStorage.getItem('rkey') || '';
+  const hdr = () => key ? { 'x-researcher-key': key } : {};
+  async function api(path, body) {
+    const res = await fetch('/api/r/' + path, body ? { method: 'POST', headers: { 'content-type': 'application/json', ...hdr() }, body: JSON.stringify(body) } : { headers: hdr() });
+    const j = await res.json().catch(() => ({}));
+    if (res.status === 401) { $('#keybox').hidden = false; throw new Error('Researcher key required.'); }
+    if (!res.ok) throw new Error(j.error || 'Request failed'); return j;
+  }
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  let status = null;
+  async function refresh() {
+    try { status = await api('status'); } catch (e) { $('#err').textContent = e.message; return; }
+    $('#mode').innerHTML = `<span class="status ${status.mode}">${status.mode.toUpperCase()} MODE</span>`;
+    $('#meta').textContent = status.mode === 'live' ? `Generation: ${status.genModel}. Verification: ${status.verifyModel}. Data directory: ${status.dataDir}` : 'No ANTHROPIC_API_KEY on the server: answers are canned examples. Add the key in Railway → Variables to go live.';
+    $('#base').textContent = location.origin + '/';
+    if (status.keyProtected) $('#keybox').hidden = !!key;
+    $('#rows').innerHTML = status.participants.map(p => `<tr><td><b>${p.pid}</b>${p.withdrawn ? ' (withdrawn)' : ''}</td><td>${esc(p.stage.stage)}${p.stage.b !== undefined ? ' b' + (p.stage.b + 1) : ''}${p.stage.c !== undefined ? ' c' + (p.stage.c + 1) : ''}</td><td>${p.assignment.versions.join(' → ')}</td><td>${p.assignment.topicSets.join(' → ')}</td><td>${p.eligible === null ? '–' : p.eligible ? 'yes' : (p.override ? 'override' : '<b>no</b>')}</td><td>${p.topics ? p.topics.opinion.join(',') + ' / ' + p.topics.preference.join(',') : '–'}</td><td>${p.memoryItems}</td><td>${p.turns}</td><td><button class="btn small ghost" data-pid="${p.pid}">Open</button></td></tr>`).join('');
+    document.querySelectorAll('button[data-pid]').forEach(b => b.onclick = () => openP(b.dataset.pid));
+    const opt = (list, k) => list.map(t => `<option value="${t.id}">${t.id}: ${esc(t[k])}</option>`).join('');
+    $('#oA').innerHTML = $('#oB').innerHTML = opt(status.topics.opinion, 'question'); $('#pA').innerHTML = $('#pB').innerHTML = opt(status.topics.preference, 'item');
+  }
+  let cur = null;
+  async function openP(pid) {
+    const r = await api('participant/' + pid); cur = pid; $('#detail').hidden = false; $('#dtitle').textContent = pid + ' · stage ' + JSON.stringify(r.stage);
+    if (r.participant.topics) { $('#oA').value = r.participant.topics.opinion[0]; $('#oB').value = r.participant.topics.opinion[1]; $('#pA').value = r.participant.topics.preference[0]; $('#pB').value = r.participant.topics.preference[1]; }
+    $('#export').href = '/api/r/export/' + pid; $('#dump').textContent = JSON.stringify(r.participant, null, 1);
+  }
+  $('#create').onclick = async () => { try { await api('participant', { pid: $('#newpid').value }); $('#newpid').value = ''; $('#err').textContent = ''; refresh(); } catch (e) { $('#err').textContent = e.message; } };
+  $('#override').onclick = async () => { if (!cur) return; try { await api('override', { pid: cur, opinion: [$('#oA').value, $('#oB').value], preference: [$('#pA').value, $('#pB').value] }); refresh(); openP(cur); } catch (e) { $('#err').textContent = e.message; } };
+  $('#starts2').onclick = async () => { if (!cur) return; try { await api('start-s2', { pid: cur }); $('#err').textContent = ''; refresh(); openP(cur); } catch (e) { $('#err').textContent = e.message; } };
+  $('#reset2').onclick = async () => { if (cur && confirm('Reset Session 2 for ' + cur + '? Session 1 answers are kept.')) { await api('reset', { pid: cur, what: 'session2' }); refresh(); openP(cur); } };
+  $('#resetall').onclick = async () => { if (cur && confirm('Erase everything for ' + cur + '?')) { await api('reset', { pid: cur, what: 'all' }); refresh(); openP(cur); } };
+  $('#setkey').onclick = () => { key = $('#key').value.trim(); localStorage.setItem('rkey', key); $('#keybox').hidden = true; refresh(); };
+  $('#export').onclick = e => { if (key) { e.preventDefault(); fetch($('#export').href, { headers: hdr() }).then(r => r.blob()).then(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = cur + '-export.json'; a.click(); }); } };
+  refresh();
+})();
+</script>
+</body>
+</html>

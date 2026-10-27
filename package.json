@@ -1,13 +1,14 @@
 {
-  "name": "memory-highlights-prototype",
-  "version": "1.0.0",
+  "name": "memory-highlights-study",
+  "version": "2.0.0",
   "private": true,
-  "description": "Clickable prototype for the CMPUT 656 study on memory highlights, sycophancy and trust.",
+  "description": "Study tool for the CMPUT 656 project on memory highlights, sycophancy and trust: a chat assistant with a live language model, a memory profile, biased/balanced answer scheduling, verified highlights, and logging.",
+  "main": "server.js",
   "scripts": {
-    "start": "serve public --no-clipboard -l tcp://0.0.0.0:${PORT:-3000}"
+    "start": "node server.js"
   },
   "dependencies": {
-    "serve": "14.2.4"
+    "express": "4.21.2"
   },
   "engines": {
     "node": ">=18"
