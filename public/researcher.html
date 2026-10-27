@@ -32,7 +32,7 @@
           <label>Preference A <select id="pA"></select></label><label>Preference B <select id="pB"></select></label>
           <button class="btn small ghost" id="override">Set topics (allows an ineligible participant)</button>
         </div>
-        <div class="row"><button class="btn small" id="starts2">Start Session 2</button><a class="btn small ghost" id="export" href="#" download>Download JSON export</a><button class="btn small ghost" id="reset2">Reset Session 2</button><button class="btn small ghost" id="resetall">Reset everything</button></div>
+        <div class="row"><button class="btn small" id="starts2">Start Session 2</button><a class="btn small ghost" id="export" href="#" download>Download JSON export</a><button class="btn small ghost" id="reset2">Reset Session 2</button><button class="btn small ghost" id="resetall">Reset everything</button><button class="btn small ghost" id="delete">Delete participant</button><span class="muted" id="auto">Refreshes every 10 s</span></div>
         <pre id="dump"></pre>
       </div>
     </div>
@@ -59,19 +59,24 @@
     if (status.keyProtected) $('#keybox').hidden = !!key;
     $('#rows').innerHTML = status.participants.map(p => `<tr><td><b>${p.pid}</b>${p.withdrawn ? ' (withdrawn)' : ''}</td><td>${esc(p.stage.stage)}${p.stage.b !== undefined ? ' b' + (p.stage.b + 1) : ''}${p.stage.c !== undefined ? ' c' + (p.stage.c + 1) : ''}</td><td>${p.assignment.versions.join(' → ')}</td><td>${p.assignment.topicSets.join(' → ')}</td><td>${p.eligible === null ? '–' : p.eligible ? 'yes' : (p.override ? 'override' : '<b>no</b>')}</td><td>${p.topics ? p.topics.opinion.join(',') + ' / ' + p.topics.preference.join(',') : '–'}</td><td>${p.memoryItems}</td><td>${p.turns}</td><td><button class="btn small ghost" data-pid="${p.pid}">Open</button></td></tr>`).join('');
     document.querySelectorAll('button[data-pid]').forEach(b => b.onclick = () => openP(b.dataset.pid));
-    const opt = (list, k) => list.map(t => `<option value="${t.id}">${t.id}: ${esc(t[k])}</option>`).join('');
-    $('#oA').innerHTML = $('#oB').innerHTML = opt(status.topics.opinion, 'question'); $('#pA').innerHTML = $('#pB').innerHTML = opt(status.topics.preference, 'item');
+    if (!$('#oA').options.length) { // fill the topic dropdowns once, so a refresh never undoes a choice in progress
+      const opt = (list, k) => list.map(t => `<option value="${t.id}">${t.id}: ${esc(t[k])}</option>`).join('');
+      $('#oA').innerHTML = $('#oB').innerHTML = opt(status.topics.opinion, 'question'); $('#pA').innerHTML = $('#pB').innerHTML = opt(status.topics.preference, 'item');
+    }
   }
   let cur = null;
-  async function openP(pid) {
-    const r = await api('participant/' + pid); cur = pid; $('#detail').hidden = false; $('#dtitle').textContent = pid + ' · stage ' + JSON.stringify(r.stage);
-    if (r.participant.topics) { $('#oA').value = r.participant.topics.opinion[0]; $('#oB').value = r.participant.topics.opinion[1]; $('#pA').value = r.participant.topics.preference[0]; $('#pB').value = r.participant.topics.preference[1]; }
+  async function openP(pid, keepSelects) {
+    let r; try { r = await api('participant/' + pid); } catch (e) { if (cur === pid) { cur = null; $('#detail').hidden = true; } return; }
+    cur = pid; $('#detail').hidden = false; $('#dtitle').textContent = pid + ' · stage ' + JSON.stringify(r.stage);
+    if (r.participant.topics && !keepSelects) { $('#oA').value = r.participant.topics.opinion[0]; $('#oB').value = r.participant.topics.opinion[1]; $('#pA').value = r.participant.topics.preference[0]; $('#pB').value = r.participant.topics.preference[1]; }
     $('#export').href = '/api/r/export/' + pid; $('#dump').textContent = JSON.stringify(r.participant, null, 1);
   }
+  setInterval(() => { if (document.visibilityState !== 'visible') return; refresh(); if (cur) openP(cur, true); }, 10000);
   $('#create').onclick = async () => { try { await api('participant', { pid: $('#newpid').value }); $('#newpid').value = ''; $('#err').textContent = ''; refresh(); } catch (e) { $('#err').textContent = e.message; } };
   $('#override').onclick = async () => { if (!cur) return; try { await api('override', { pid: cur, opinion: [$('#oA').value, $('#oB').value], preference: [$('#pA').value, $('#pB').value] }); refresh(); openP(cur); } catch (e) { $('#err').textContent = e.message; } };
   $('#starts2').onclick = async () => { if (!cur) return; try { await api('start-s2', { pid: cur }); $('#err').textContent = ''; refresh(); openP(cur); } catch (e) { $('#err').textContent = e.message; } };
   $('#reset2').onclick = async () => { if (cur && confirm('Reset Session 2 for ' + cur + '? Session 1 answers are kept.')) { await api('reset', { pid: cur, what: 'session2' }); refresh(); openP(cur); } };
+  $('#delete').onclick = async () => { if (cur && confirm('Delete ' + cur + ' completely, including the event log? This cannot be undone.')) { try { await api('delete', { pid: cur }); cur = null; $('#detail').hidden = true; refresh(); } catch (e) { $('#err').textContent = e.message; } } };
   $('#resetall').onclick = async () => { if (cur && confirm('Erase everything for ' + cur + '?')) { await api('reset', { pid: cur, what: 'all' }); refresh(); openP(cur); } };
   $('#setkey').onclick = () => { key = $('#key').value.trim(); localStorage.setItem('rkey', key); $('#keybox').hidden = true; refresh(); };
   $('#export').onclick = e => { if (key) { e.preventDefault(); fetch($('#export').href, { headers: hdr() }).then(r => r.blob()).then(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = cur + '-export.json'; a.click(); }); } };

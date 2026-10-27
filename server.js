@@ -573,6 +573,11 @@ app.post('/api/r/start-s2', (req, res) => {
   if (!p.topics) return res.status(400).json({ error: 'Session 1 not done yet.' });
   p.s2.started = new Date().toISOString(); saveP(p); logEvent(p.pid, 'startSession2', {}); res.json({ ok: true });
 });
+app.post('/api/r/delete', (req, res) => {
+  const pid = String(req.body.pid || '').toUpperCase(); if (!loadP(pid)) return res.status(404).json({ error: 'Unknown participant.' });
+  fs.rmSync(pfile(pid), { force: true }); fs.rmSync(path.join(LOG_DIR, pid + '.jsonl'), { force: true });
+  res.json({ ok: true });
+});
 app.post('/api/r/reset', (req, res) => {
   const pid = String(req.body.pid || '').toUpperCase(); const p = loadP(pid); if (!p) return res.status(404).json({ error: 'Unknown participant.' });
   const what = req.body.what || 'session2';
