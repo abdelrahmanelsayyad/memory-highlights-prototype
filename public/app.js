@@ -200,7 +200,8 @@
   }
 
   function renderBlockRatings(demo) {
-    setScreen(demo + `<h2>About this version of the assistant overall</h2><p class="muted">Think about both conversations you just had with it.</p>
+    const v = state.version === 'hl' ? 'with highlights' : 'without highlights';
+    setScreen(demo + `<h2>About the version ${v} (Part ${state.b + 1})</h2><p class="muted">Think back to the two conversations you had with that version.</p>
       <div class="q"><p class="q-label">Overall, how balanced was this assistant?</p>${scale('balance', 7, 'Very one-sided', 'Very balanced')}</div>
       <div class="q"><p class="q-label">It used what it remembers about me.</p>${scale('memoryUse', 7, 'Strongly disagree', 'Strongly agree')}</div>
       <div class="actions"><span class="err" id="err"></span><button class="btn" id="go">Continue</button></div>`);
@@ -209,7 +210,7 @@
 
   function renderAudit(demo) {
     const hl = state.version === 'hl';
-    let html = demo + `<h2>Look at each answer again</h2>
+    let html = demo + `<h2>Look at each answer again: the version ${hl ? 'with' : 'without'} highlights (Part ${state.b + 1})</h2>
       <p class="lede">For each answer, say whether it gave a <b>one-sided picture that favours your own views or preferences</b>. Using your details to pick an example does not count as one-sided.${hl ? '' : ' Also <b>click any sentence</b> you think used what the assistant remembers about you.'}</p>`;
     state.convs.forEach((conv, c) => {
       html += `<h3>${conv.kind === 'opinion' ? 'Conversation 1' : 'Conversation 2'}: ${esc(conv.question)}</h3>`;

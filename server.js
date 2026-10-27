@@ -334,6 +334,10 @@ function stageOf(p) {
       if (!conv.writeup) return { stage: 'writeup', b, c };
       if (!conv.trust) return { stage: 'trust', b, c };
     }
+  }
+  // The balance ratings and the audits come after both blocks, so that questions about one-sidedness do not prime the second block.
+  for (let b = 0; b < 2; b++) {
+    const B = p.s2.blocks[b];
     if (!B.blockRatings) return { stage: 'blockRatings', b };
     if (!B.audit) return { stage: 'audit', b };
   }
