@@ -228,11 +228,11 @@ async function generate(p, conv, mode, userText) {
   const system = systemPrompt(p, conv, mode);
   const messages = history(conv).concat([{ role: 'user', content: userText }]);
   if (!LIVE) return { raw: null, sentences: demoAnswer(p, conv, mode, userText), system };
-  let raw = await callClaude({ model: GEN_MODEL, system, messages, maxTokens: 800 });
+  let raw = await callClaude({ model: GEN_MODEL, system, messages, maxTokens: 8000 }); // thinking tokens count against max_tokens
   let sentences;
   try { sentences = cleanSentences(parseJSON(raw)); } catch (e) { sentences = []; }
   if (sentences.length < 2) { // one retry with a firmer instruction
-    raw = await callClaude({ model: GEN_MODEL, system: system + '\n\nYour previous reply was not valid JSON. Reply with the JSON object only.', messages, maxTokens: 800 });
+    raw = await callClaude({ model: GEN_MODEL, system: system + '\n\nYour previous reply was not valid JSON. Reply with the JSON object only.', messages, maxTokens: 8000 });
     sentences = cleanSentences(parseJSON(raw));
     if (sentences.length < 2) throw new Error('The model did not return a usable answer: ' + raw.slice(0, 120));
   }
@@ -242,7 +242,7 @@ async function generate(p, conv, mode, userText) {
 async function verify(p, sentences) {
   if (!LIVE) return { raw: null, tags: sentences.map(s => s.memory.slice()) };
   const user = verifyUser(p, sentences);
-  const raw = await callClaude({ model: VERIFY_MODEL, system: VERIFY_SYSTEM, messages: [{ role: 'user', content: user }], maxTokens: 400 });
+  const raw = await callClaude({ model: VERIFY_MODEL, system: VERIFY_SYSTEM, messages: [{ role: 'user', content: user }], maxTokens: 4000, effort: 'low' });
   let tags = [];
   try { const o = parseJSON(raw); tags = Array.isArray(o.tags) ? o.tags : []; } catch (e) { tags = []; }
   tags = sentences.map((s, i) => Array.isArray(tags[i]) ? tags[i].filter(x => /^M\d+$/.test(String(x))).map(String) : []);
