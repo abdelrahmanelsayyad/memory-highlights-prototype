@@ -234,6 +234,7 @@ async function generate(p, conv, mode, userText) {
   if (sentences.length < 2) { // one retry with a firmer instruction
     raw = await callClaude({ model: GEN_MODEL, system: system + '\n\nYour previous reply was not valid JSON. Reply with the JSON object only.', messages, maxTokens: 800, temperature: 0.5 });
     sentences = cleanSentences(parseJSON(raw));
+    if (sentences.length < 2) throw new Error('The model did not return a usable answer: ' + raw.slice(0, 120));
   }
   return { raw, sentences, system };
 }
