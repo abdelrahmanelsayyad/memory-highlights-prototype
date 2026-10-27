@@ -26,7 +26,7 @@ Environment variables:
 | `GEN_MODEL` | Generation model (default `claude-sonnet-5-5`). |
 | `VERIFY_MODEL` | Verification model (default `claude-haiku-5-5`). |
 | `RESEARCHER_KEY` | If set, the researcher page and `/api/r/*` require this key. |
-| `DATA_DIR` | Where participant files and event logs are written (default `./data`). On Railway, mount a volume and point this at it, or the data vanishes on redeploy. |
+| `DATA_DIR` | Where participant files and event logs are written. Defaults to the Railway volume's mount path when a volume is attached (`RAILWAY_VOLUME_MOUNT_PATH`), else `./data`. Without a volume the data vanishes on every redeploy. `/health` shows the directory in use. |
 | `PORT` | Port (Railway sets it). |
 
 Data: `DATA_DIR/participants/<code>.json` is the participant's current state; `DATA_DIR/events/<code>.jsonl` is the append-only event log (every turn with both model outputs, every rating, every highlight hover, every audit click). The researcher page exports both as one JSON file per participant.

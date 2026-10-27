@@ -11,7 +11,8 @@ const path = require('path');
 const crypto = require('crypto');
 
 const TOPICS = JSON.parse(fs.readFileSync(path.join(__dirname, 'topics.json'), 'utf8'));
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
+// Data lives on the Railway volume when one is mounted (Railway sets RAILWAY_VOLUME_MOUNT_PATH), else in ./data.
+const DATA_DIR = process.env.DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, 'data');
 const PART_DIR = path.join(DATA_DIR, 'participants');
 const LOG_DIR = path.join(DATA_DIR, 'events');
 for (const d of [DATA_DIR, PART_DIR, LOG_DIR]) fs.mkdirSync(d, { recursive: true });
@@ -581,6 +582,6 @@ app.post('/api/r/reset', (req, res) => {
 });
 
 app.get('/researcher', (req, res) => res.sendFile(path.join(__dirname, 'public', 'researcher.html')));
-app.get('/health', (req, res) => res.json({ ok: true, mode: LIVE ? 'live' : 'demo', version: require('./package.json').version }));
+app.get('/health', (req, res) => res.json({ ok: true, mode: LIVE ? 'live' : 'demo', version: require('./package.json').version, dataDir: DATA_DIR, participants: fs.readdirSync(PART_DIR).filter(f => f.endsWith('.json')).length }));
 
 app.listen(PORT, '0.0.0.0', () => console.log(`Study tool listening on ${PORT} in ${LIVE ? 'LIVE' : 'DEMO'} mode; data in ${DATA_DIR}`));
