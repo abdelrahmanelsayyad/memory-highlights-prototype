@@ -193,15 +193,14 @@ function verifyUser(p, sentences) {
 }
 
 // ---------------------------------------------------------------- model calls
-async function callClaude({ model, system, messages, maxTokens = 700, temperature = 0.7 }) {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model, system, messages, max_tokens: maxTokens, temperature }),
-  });
-  if (!res.ok) throw new Error(`Anthropic API ${res.status}: ${(await res.text()).slice(0, 300)}`);
-  const j = await res.json();
-  return (j.content || []).map(c => c.text || '').join('');
+const Anthropic = require('@anthropic-ai/sdk');
+const claude = LIVE ? new Anthropic() : null; // reads ANTHROPIC_API_KEY; retries rate limits and 5xx itself
+async function callClaude({ model, system, messages, maxTokens = 8000, effort = 'medium' }) {
+  // No temperature: the Claude 5.5 models reject sampling parameters. Effort controls how much the model thinks.
+  const res = await claude.messages.create({ model, system, messages, max_tokens: maxTokens, output_config: { effort } });
+  if (res.stop_reason === 'refusal') throw new Error('The model declined this request' + (res.stop_details && res.stop_details.category ? ` (${res.stop_details.category})` : ''));
+  if (res.stop_reason === 'max_tokens') throw new Error('The model ran out of output tokens');
+  return res.content.filter(b => b.type === 'text').map(b => b.text).join('');
 }
 function parseJSON(text) {
   const m = text.match(/\{[\s\S]*\}/);
@@ -216,10 +215,11 @@ function cleanSentences(obj) {
 }
 
 function history(conv) {
+  // Earlier turns are replayed as plain text: the model's own JSON reply when there is one (live), else the sentences (demo).
   const msgs = [];
   for (const t of conv.turns) {
     msgs.push({ role: 'user', content: t.user });
-    msgs.push({ role: 'assistant', content: t.final.map(s => s.text).join(' ') });
+    msgs.push({ role: 'assistant', content: (t.gen && t.gen.raw) || t.final.map(s => s.text).join(' ') });
   }
   return msgs;
 }
@@ -228,11 +228,11 @@ async function generate(p, conv, mode, userText) {
   const system = systemPrompt(p, conv, mode);
   const messages = history(conv).concat([{ role: 'user', content: userText }]);
   if (!LIVE) return { raw: null, sentences: demoAnswer(p, conv, mode, userText), system };
-  let raw = await callClaude({ model: GEN_MODEL, system, messages, maxTokens: 800, temperature: 0.7 });
+  let raw = await callClaude({ model: GEN_MODEL, system, messages, maxTokens: 800 });
   let sentences;
   try { sentences = cleanSentences(parseJSON(raw)); } catch (e) { sentences = []; }
   if (sentences.length < 2) { // one retry with a firmer instruction
-    raw = await callClaude({ model: GEN_MODEL, system: system + '\n\nYour previous reply was not valid JSON. Reply with the JSON object only.', messages, maxTokens: 800, temperature: 0.5 });
+    raw = await callClaude({ model: GEN_MODEL, system: system + '\n\nYour previous reply was not valid JSON. Reply with the JSON object only.', messages, maxTokens: 800 });
     sentences = cleanSentences(parseJSON(raw));
     if (sentences.length < 2) throw new Error('The model did not return a usable answer: ' + raw.slice(0, 120));
   }
@@ -242,7 +242,7 @@ async function generate(p, conv, mode, userText) {
 async function verify(p, sentences) {
   if (!LIVE) return { raw: null, tags: sentences.map(s => s.memory.slice()) };
   const user = verifyUser(p, sentences);
-  const raw = await callClaude({ model: VERIFY_MODEL, system: VERIFY_SYSTEM, messages: [{ role: 'user', content: user }], maxTokens: 400, temperature: 0 });
+  const raw = await callClaude({ model: VERIFY_MODEL, system: VERIFY_SYSTEM, messages: [{ role: 'user', content: user }], maxTokens: 400 });
   let tags = [];
   try { const o = parseJSON(raw); tags = Array.isArray(o.tags) ? o.tags : []; } catch (e) { tags = []; }
   tags = sentences.map((s, i) => Array.isArray(tags[i]) ? tags[i].filter(x => /^M\d+$/.test(String(x))).map(String) : []);
@@ -581,6 +581,6 @@ app.post('/api/r/reset', (req, res) => {
 });
 
 app.get('/researcher', (req, res) => res.sendFile(path.join(__dirname, 'public', 'researcher.html')));
-app.get('/health', (req, res) => res.json({ ok: true, mode: LIVE ? 'live' : 'demo' }));
+app.get('/health', (req, res) => res.json({ ok: true, mode: LIVE ? 'live' : 'demo', version: require('./package.json').version }));
 
 app.listen(PORT, '0.0.0.0', () => console.log(`Study tool listening on ${PORT} in ${LIVE ? 'LIVE' : 'DEMO'} mode; data in ${DATA_DIR}`));
