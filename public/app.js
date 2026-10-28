@@ -201,16 +201,16 @@
       const text = $('#msg').value.trim(); if (!text) return;
       $('#send').disabled = true; $('#msg').disabled = true; err('');
       const thread = $('#thread');
-      thread.insertAdjacentHTML('beforeend', `<div class="msg-user">${esc(text)}</div><div class="msg-ai pending" id="pending"><span class="ai-label">A</span><p>Thinking…</p></div>`);
+      thread.insertAdjacentHTML('beforeend', `<div class="msg-user" id="pending-user">${esc(text)}</div><div class="msg-ai pending" id="pending"><span class="ai-label">A</span><p>Thinking…</p></div>`);
       thread.lastElementChild.scrollIntoView({ block: 'end' });
       try {
         const r = await api('chat', { message: text });
         state.conv.turns.push(r.turn);
-        $('#pending').outerHTML = answerShell(r.turn);
+        $('#pending').outerHTML = answerShell(r.turn); const ub = $('#pending-user'); if (ub) ub.removeAttribute('id');
         $('#msg').value = ''; log('answerShown', { turn: r.turn.i });
         const ms = await revealAnswer(thread.querySelector(`.msg-ai[data-turn="${r.turn.i}"]`), r.turn);
         counter(); log('answerRevealed', { turn: r.turn.i, ms });
-      } catch (e) { $('#pending').remove(); err(e.message); }
+      } catch (e) { const pe = $('#pending'); if (pe) pe.remove(); const ub = $('#pending-user'); if (ub) ub.remove(); err(e.message); }
       $('#send').disabled = false; $('#msg').disabled = false; $('#msg').focus();
     };
     $('#send').onclick = send; $('#msg').onkeydown = e => { if (e.key === 'Enter') send(); };
@@ -269,7 +269,7 @@
       const labels = {}; for (const conv of state.convs) for (const t of conv.turns) { const c = state.convs.indexOf(conv); labels[`${c}-${t.i}`] = val(`lab-${c}-${t.i}`); }
       const body = { labels };
       if (!hl) { body.memoryClicks = {}; screen.querySelectorAll('.ans').forEach(a => { body.memoryClicks[`${a.dataset.c}-${a.dataset.i}`] = [...a.querySelectorAll('mark.sel.on')].map(m => +m.dataset.k); }); }
-      else { body.highlight = { right: +val('right'), helped: +val('helped') }; body.comprehension = val('comp'); }
+      else { body.highlight = { right: +val('right'), helped: +val('helped') }; body.comprehension = val('comp'); if (!body.comprehension) return err('Please answer what the highlights showed.'); }
       try { state = await api('audit', body); render(); } catch (e) { err(e.message); }
     };
   }

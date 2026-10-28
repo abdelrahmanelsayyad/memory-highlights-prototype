@@ -94,6 +94,18 @@ function buildMemory(s1) {
   return items;
 }
 
+// Server-side copy of the interface's checks: every item answered, values within their scales, free text cut to 60 characters.
+function validateSession1(a) {
+  if (!a || typeof a !== 'object' || !a.opinion || !a.preference || !a.background) return null;
+  const out = { opinion: {}, preference: {}, background: {}, ai: {} };
+  const int = (v, lo, hi) => { const n = Number(v); return Number.isInteger(n) && n >= lo && n <= hi ? n : null; };
+  for (const t of TOPICS.opinion) { const x = a.opinion[t.id] || {}; const r = int(x.rating, 1, 6), imp = int(x.importance, 1, 5); if (r === null || imp === null) return null; out.opinion[t.id] = { rating: r, importance: imp }; }
+  for (const t of TOPICS.preference) { const x = a.preference[t.id] || {}; if (!['a', 'b'].includes(x.choice) || !['slightly', 'moderately', 'strongly'].includes(x.strength) || !['yes', 'no'].includes(x.face)) return null; out.preference[t.id] = { choice: x.choice, strength: x.strength, face: x.face }; }
+  for (const b of TOPICS.background) { const v = String(a.background[b.id] == null ? '' : a.background[b.id]).trim().slice(0, 60); if (!v || (b.type === 'choice' && !b.choices.includes(v))) return null; out.background[b.id] = v; }
+  const ai = a.ai || {}; if (!TOPICS.aiUse.freq.choices.includes(ai.freq) || !TOPICS.aiUse.memory.choices.includes(ai.memory)) return null; out.ai = { freq: ai.freq, memory: ai.memory };
+  return out;
+}
+
 function selectTopics(s1) {
   const op = TOPICS.opinion.map(t => {
     const a = s1.opinion[t.id] || {}; const r = Number(a.rating) || 3.5, imp = Number(a.importance) || 0;
@@ -149,8 +161,18 @@ function memoryBlock(p) {
 }
 function userSide(p, topic) {
   const m = p.memory.find(x => !x.removed && x.kind === 'opinion' && x.text.includes(` that ${topic.statement}`));
-  if (!m) return null;
-  return m.text.startsWith('Agrees') ? 'PRO' : 'CON';
+  if (m) return m.text.startsWith('Agrees') ? 'PRO' : 'CON';
+  // the stance item was marked wrong at the memory review (or is missing): use the Session 1 rating rather than defaulting to PRO
+  const a = p.session1 && p.session1.opinion && p.session1.opinion[topic.id];
+  return a ? (Number(a.rating) >= 4 ? 'PRO' : 'CON') : null;
+}
+// Chosen topics whose memory item the participant marked wrong, shown on the researcher page so the topic can be swapped before the block.
+function topicWarnings(p) {
+  const w = [];
+  if (!p.topics || !p.memory) return w;
+  for (const id of p.topics.opinion) { const t = topicById(id); if (t && p.memory.some(m => m.removed && m.kind === 'opinion' && m.text.includes(' that ' + t.statement))) w.push(id + ': stance item marked wrong'); }
+  for (const id of p.topics.preference) { const t = topicById(id); if (t && p.memory.some(m => m.removed && m.kind === 'preference' && (m.text.startsWith(t.memA) || m.text.startsWith(t.memB)))) w.push(id + ': preference item marked wrong'); }
+  return w;
 }
 function userPref(p, topic) {
   const a = p.session1.preference[topic.id];
@@ -232,10 +254,10 @@ async function generate(p, conv, mode, userText) {
   let raw = await callClaude({ model: GEN_MODEL, system, messages, maxTokens: 8000 }); // thinking tokens count against max_tokens
   let sentences;
   try { sentences = cleanSentences(parseJSON(raw)); } catch (e) { sentences = []; }
-  if (sentences.length < 2) { // one retry with a firmer instruction
+  if (sentences.length === 0) { // nothing parsable: one retry with a firmer instruction (a one-sentence answer is fine)
     raw = await callClaude({ model: GEN_MODEL, system: system + '\n\nYour previous reply was not valid JSON. Reply with the JSON object only.', messages, maxTokens: 8000 });
-    sentences = cleanSentences(parseJSON(raw));
-    if (sentences.length < 2) throw new Error('The model did not return a usable answer: ' + raw.slice(0, 120));
+    try { sentences = cleanSentences(parseJSON(raw)); } catch (e) { sentences = []; }
+    if (sentences.length === 0) throw new Error('The model did not return a usable answer: ' + raw.slice(0, 120));
   }
   return { raw, sentences, system };
 }
@@ -389,32 +411,48 @@ function debriefView(p) {
 // ---------------------------------------------------------------- API: participant
 const getP = (req, res) => { const p = loadP(String(req.query.pid || (req.body || {}).pid || '').toUpperCase()); if (!p) { res.status(404).json({ error: 'Unknown participant code.' }); return null; } return p; };
 
+// Requests for the same participant run one after another: two messages sent at the same moment (a double click, a second
+// tab) cannot overwrite each other's turn, and a researcher action cannot interleave with an answer in progress.
+const queues = new Map();
+function queued(handler) {
+  return (req, res) => {
+    const pid = String(req.query.pid || (req.body || {}).pid || '').toUpperCase();
+    const prev = queues.get(pid) || Promise.resolve();
+    const next = prev.then(() => handler(req, res)).catch(e => { console.error('handler error', e); if (!res.headersSent) res.status(500).json({ error: 'Server error.' }); });
+    const tail = next.finally(() => { if (queues.get(pid) === tail) queues.delete(pid); });
+    queues.set(pid, tail);
+    return tail;
+  };
+}
+
 app.get('/api/state', (req, res) => { const p = getP(req, res); if (!p) return; res.json(stateFor(p)); });
 
-app.post('/api/session1', (req, res) => {
+app.post('/api/session1', queued((req, res) => {
   const p = getP(req, res); if (!p) return;
-  const s1 = req.body.answers || {};
-  if (!s1.opinion || !s1.preference || !s1.background) return res.status(400).json({ error: 'Incomplete questionnaire.' });
+  if (p.s2.started) return res.status(400).json({ error: 'Session 1 is closed for this code.' });
+  const s1 = validateSession1(req.body.answers);
+  if (!s1) return res.status(400).json({ error: 'Incomplete questionnaire.' });
   p.session1 = { ...s1, submittedAt: new Date().toISOString() };
   p.memory = buildMemory(p.session1);
   p.topics = selectTopics(p.session1);
   initBlocks(p);
   saveP(p); logEvent(p.pid, 'session1', { answers: s1, memory: p.memory, topics: p.topics });
   res.json(stateFor(p));
-});
+}));
 
-app.post('/api/consent', (req, res) => { const p = getP(req, res); if (!p) return; p.s2.consent = { at: new Date().toISOString(), recording: !!req.body.recording }; saveP(p); logEvent(p.pid, 'consent', p.s2.consent); res.json(stateFor(p)); });
+app.post('/api/consent', queued((req, res) => { const p = getP(req, res); if (!p) return; p.s2.consent = { at: new Date().toISOString(), recording: !!req.body.recording }; saveP(p); logEvent(p.pid, 'consent', p.s2.consent); res.json(stateFor(p)); }));
 
-app.post('/api/memory-review', (req, res) => {
+app.post('/api/memory-review', queued((req, res) => {
   const p = getP(req, res); if (!p) return;
+  if (stageOf(p).stage !== 'memory') return res.status(400).json({ error: 'Not expecting the memory review.' });
   const wrong = new Set((req.body.wrong || []).map(String));
   for (const m of p.memory) m.removed = wrong.has(m.id);
   p.s2.memoryReviewed = true;
-  // re-check topic eligibility after removals (topics whose stance item was removed are swapped by the researcher if needed)
+  // a removed stance or preference item is flagged on the researcher page (topicWarnings); the biased side then falls back to the Session 1 rating
   p.s2.tutorial = { kind: 'tutorial', topicId: null, plan: null, turns: [], done: false };
   saveP(p); logEvent(p.pid, 'memoryReview', { wrong: [...wrong] });
   res.json(stateFor(p));
-});
+}));
 
 async function answerTurn(p, conv, userText, kindOverride) {
   const mode = conv.kind === 'tutorial' ? 'balanced' : nextMode(conv);
@@ -429,7 +467,7 @@ async function answerTurn(p, conv, userText, kindOverride) {
   return turn;
 }
 
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', queued(async (req, res) => {
   const p = getP(req, res); if (!p) return;
   const text = String(req.body.message || '').trim().slice(0, 1000);
   if (!text) return res.status(400).json({ error: 'Empty message.' });
@@ -449,44 +487,44 @@ app.post('/api/chat', async (req, res) => {
     logEvent(p.pid, 'error', { where: 'chat', message: String(e.message || e) });
     res.status(502).json({ error: 'The assistant could not answer just now. Please try again.' , detail: String(e.message || e).slice(0, 200) });
   }
-});
+}));
 
-app.post('/api/tutorial-done', (req, res) => { const p = getP(req, res); if (!p) return; if (p.s2.tutorial) p.s2.tutorial.done = true; saveP(p); logEvent(p.pid, 'tutorialDone', {}); res.json(stateFor(p)); });
+app.post('/api/tutorial-done', queued((req, res) => { const p = getP(req, res); if (!p) return; if (p.s2.tutorial) p.s2.tutorial.done = true; saveP(p); logEvent(p.pid, 'tutorialDone', {}); res.json(stateFor(p)); }));
 
-app.post('/api/finish', (req, res) => {
+app.post('/api/finish', queued((req, res) => {
   const p = getP(req, res); if (!p) return;
   const st = stageOf(p); if (st.stage !== 'chat') return res.status(400).json({ error: 'Not in a conversation.' });
   const conv = p.s2.blocks[st.b].convs[st.c];
   if (conv.turns.length < 4) return res.status(400).json({ error: 'Please ask at least four questions first.' });
   conv.finished = new Date().toISOString(); saveP(p); logEvent(p.pid, 'finish', { b: st.b, c: st.c, turns: conv.turns.length });
   res.json(stateFor(p));
-});
+}));
 
-app.post('/api/writeup', (req, res) => {
+app.post('/api/writeup', queued((req, res) => {
   const p = getP(req, res); if (!p) return;
   const st = stageOf(p); if (st.stage !== 'writeup') return res.status(400).json({ error: 'Not expecting a write-up.' });
-  const text = String(req.body.text || '').trim(); if (text.length < 20) return res.status(400).json({ error: 'Please write a few sentences.' });
+  const text = String(req.body.text || '').trim().slice(0, 5000); if (text.length < 20) return res.status(400).json({ error: 'Please write a few sentences.' });
   const conv = p.s2.blocks[st.b].convs[st.c]; conv.writeup = { text, at: new Date().toISOString() }; saveP(p); logEvent(p.pid, 'writeup', { b: st.b, c: st.c, text });
   res.json(stateFor(p));
-});
+}));
 
-app.post('/api/trust', (req, res) => {
+app.post('/api/trust', queued((req, res) => {
   const p = getP(req, res); if (!p) return;
   const st = stageOf(p); if (st.stage !== 'trust') return res.status(400).json({ error: 'Not expecting trust ratings.' });
-  const r = req.body.ratings || {}; for (const k of ['trust', 'accurate', 'rely']) if (!(r[k] >= 1 && r[k] <= 7)) return res.status(400).json({ error: 'Please answer all three items.' });
+  const r = req.body.ratings || {}; for (const k of ['trust', 'accurate', 'rely']) if (!Number.isInteger(Number(r[k])) || !(r[k] >= 1 && r[k] <= 7)) return res.status(400).json({ error: 'Please answer all three items.' });
   const conv = p.s2.blocks[st.b].convs[st.c]; conv.trust = { ...r, at: new Date().toISOString() }; saveP(p); logEvent(p.pid, 'trust', { b: st.b, c: st.c, ratings: r });
   res.json(stateFor(p));
-});
+}));
 
-app.post('/api/block-ratings', (req, res) => {
+app.post('/api/block-ratings', queued((req, res) => {
   const p = getP(req, res); if (!p) return;
   const st = stageOf(p); if (st.stage !== 'blockRatings') return res.status(400).json({ error: 'Not expecting block ratings.' });
-  const r = req.body.ratings || {}; for (const k of ['balance', 'memoryUse']) if (!(r[k] >= 1 && r[k] <= 7)) return res.status(400).json({ error: 'Please answer both items.' });
+  const r = req.body.ratings || {}; for (const k of ['balance', 'memoryUse']) if (!Number.isInteger(Number(r[k])) || !(r[k] >= 1 && r[k] <= 7)) return res.status(400).json({ error: 'Please answer both items.' });
   p.s2.blocks[st.b].blockRatings = { ...r, at: new Date().toISOString() }; saveP(p); logEvent(p.pid, 'blockRatings', { b: st.b, ratings: r });
   res.json(stateFor(p));
-});
+}));
 
-app.post('/api/audit', (req, res) => {
+app.post('/api/audit', queued((req, res) => {
   const p = getP(req, res); if (!p) return;
   const st = stageOf(p); if (st.stage !== 'audit') return res.status(400).json({ error: 'Not expecting an audit.' });
   const B = p.s2.blocks[st.b];
@@ -495,8 +533,9 @@ app.post('/api/audit', (req, res) => {
   const audit = { labels, at: new Date().toISOString() };
   if (B.version === 'plain') audit.memoryClicks = req.body.memoryClicks || {}; // key "c-i" -> [sentence indexes]
   else {
-    const h = req.body.highlight || {}; for (const k of ['right', 'helped']) if (!(h[k] >= 1 && h[k] <= 7)) return res.status(400).json({ error: 'Please answer the highlight questions.' });
-    audit.highlight = h; audit.comprehension = req.body.comprehension || null;
+    const h = req.body.highlight || {}; for (const k of ['right', 'helped']) if (!Number.isInteger(Number(h[k])) || !(h[k] >= 1 && h[k] <= 7)) return res.status(400).json({ error: 'Please answer the highlight questions.' });
+    if (!['memory', 'important', 'uncertain', 'biased'].includes(req.body.comprehension)) return res.status(400).json({ error: 'Please answer what the highlights showed.' });
+    audit.highlight = { right: Number(h.right), helped: Number(h.helped) }; audit.comprehension = req.body.comprehension;
   }
   // scoring against the known modes
   audit.score = { hits: 0, falseAlarms: 0, notSure: 0, biased: 0, balanced: 0, memoryFound: 0, memoryTagged: 0 };
@@ -508,18 +547,18 @@ app.post('/api/audit', (req, res) => {
   }));
   B.audit = audit; saveP(p); logEvent(p.pid, 'audit', { b: st.b, audit });
   res.json(stateFor(p));
-});
+}));
 
-app.post('/api/comparison', (req, res) => {
+app.post('/api/comparison', queued((req, res) => {
   const p = getP(req, res); if (!p) return;
   if (stageOf(p).stage !== 'comparison') return res.status(400).json({ error: 'Not expecting the comparison.' });
   const c = req.body.answers || {}; if (!c.trustedMore || !c.easier || !(c.comfort >= 1 && c.comfort <= 7)) return res.status(400).json({ error: 'Please answer every question.' });
   p.s2.comparison = { ...c, at: new Date().toISOString() }; saveP(p); logEvent(p.pid, 'comparison', c); res.json(stateFor(p));
-});
-app.post('/api/purpose', (req, res) => { const p = getP(req, res); if (!p) return; if (stageOf(p).stage !== 'purpose') return res.status(400).json({ error: 'Not expecting this.' }); p.s2.purpose = { text: String(req.body.text || ''), at: new Date().toISOString() }; saveP(p); logEvent(p.pid, 'purpose', p.s2.purpose); res.json(stateFor(p)); });
-app.post('/api/interview', (req, res) => { const p = getP(req, res); if (!p) return; if (stageOf(p).stage !== 'interview') return res.status(400).json({ error: 'Not expecting this.' }); p.s2.interviewNotes = { text: String(req.body.text || ''), at: new Date().toISOString() }; saveP(p); logEvent(p.pid, 'interview', p.s2.interviewNotes); res.json(stateFor(p)); });
+}));
+app.post('/api/purpose', queued((req, res) => { const p = getP(req, res); if (!p) return; if (stageOf(p).stage !== 'purpose') return res.status(400).json({ error: 'Not expecting this.' }); p.s2.purpose = { text: String(req.body.text || ''), at: new Date().toISOString() }; saveP(p); logEvent(p.pid, 'purpose', p.s2.purpose); res.json(stateFor(p)); }));
+app.post('/api/interview', queued((req, res) => { const p = getP(req, res); if (!p) return; if (stageOf(p).stage !== 'interview') return res.status(400).json({ error: 'Not expecting this.' }); p.s2.interviewNotes = { text: String(req.body.text || ''), at: new Date().toISOString() }; saveP(p); logEvent(p.pid, 'interview', p.s2.interviewNotes); res.json(stateFor(p)); }));
 
-app.post('/api/balanced-version', async (req, res) => {
+app.post('/api/balanced-version', queued(async (req, res) => {
   const p = getP(req, res); if (!p) return;
   const { b, c, i } = req.body; const conv = (p.s2.blocks[b] || {}).convs?.[c]; const t = conv && conv.turns[i];
   if (!t) return res.status(400).json({ error: 'No such answer.' });
@@ -531,9 +570,9 @@ app.post('/api/balanced-version', async (req, res) => {
     saveP(p); logEvent(p.pid, 'balancedVersion', { b, c, i, text: t.balancedVersion });
     res.json({ text: t.balancedVersion });
   } catch (e) { res.status(502).json({ error: 'Could not generate the balanced version right now.' }); }
-});
-app.post('/api/debrief-seen', (req, res) => { const p = getP(req, res); if (!p) return; p.s2.debriefSeen = true; saveP(p); logEvent(p.pid, 'debriefSeen', {}); res.json(stateFor(p)); });
-app.post('/api/withdraw', (req, res) => { const p = getP(req, res); if (!p) return; p.s2.withdrawn = true; p.s2.debriefSeen = true; saveP(p); logEvent(p.pid, 'withdraw', {}); res.json(stateFor(p)); });
+}));
+app.post('/api/debrief-seen', queued((req, res) => { const p = getP(req, res); if (!p) return; p.s2.debriefSeen = true; saveP(p); logEvent(p.pid, 'debriefSeen', {}); res.json(stateFor(p)); }));
+app.post('/api/withdraw', queued((req, res) => { const p = getP(req, res); if (!p) return; p.s2.withdrawn = true; p.s2.debriefSeen = true; saveP(p); logEvent(p.pid, 'withdraw', {}); res.json(stateFor(p)); }));
 app.post('/api/event', (req, res) => { const p = loadP(String(req.body.pid || '').toUpperCase()); if (!p) return res.status(404).end(); logEvent(p.pid, 'ui', { ...req.body, pid: undefined }); res.json({ ok: true }); });
 
 // ---------------------------------------------------------------- API: researcher
@@ -546,7 +585,7 @@ app.use('/api/r', researcherAuth);
 app.get('/api/r/status', (req, res) => {
   const list = fs.readdirSync(PART_DIR).filter(f => f.endsWith('.json')).map(f => loadP(f.replace('.json', ''))).filter(Boolean)
     .sort((a, b) => parseInt(a.pid.slice(1)) - parseInt(b.pid.slice(1)))
-    .map(p => ({ pid: p.pid, stage: stageOf(p), assignment: p.assignment, eligible: p.topics ? p.topics.eligible : null, override: p.override, topics: p.topics ? { opinion: p.topics.opinion, preference: p.topics.preference } : null, withdrawn: p.s2.withdrawn, memoryItems: p.memory.filter(m => !m.removed).length, turns: p.s2.blocks ? p.s2.blocks.reduce((n, B) => n + B.convs.reduce((m, c) => m + c.turns.length, 0), 0) : 0 }));
+    .map(p => ({ pid: p.pid, stage: stageOf(p), assignment: p.assignment, eligible: p.topics ? p.topics.eligible : null, override: p.override, warnings: topicWarnings(p), topics: p.topics ? { opinion: p.topics.opinion, preference: p.topics.preference } : null, withdrawn: p.s2.withdrawn, memoryItems: p.memory.filter(m => !m.removed).length, turns: p.s2.blocks ? p.s2.blocks.reduce((n, B) => n + B.convs.reduce((m, c) => m + c.turns.length, 0), 0) : 0 }));
   res.json({ mode: LIVE ? 'live' : 'demo', genModel: LIVE ? GEN_MODEL : null, verifyModel: LIVE ? VERIFY_MODEL : null, keyProtected: !!RESEARCHER_KEY, dataDir: DATA_DIR, participants: list, topics: { opinion: TOPICS.opinion.map(t => ({ id: t.id, question: t.question })), preference: TOPICS.preference.map(t => ({ id: t.id, item: t.item })) } });
 });
 app.post('/api/r/participant', (req, res) => {
@@ -563,32 +602,34 @@ app.get('/api/r/export/:pid', (req, res) => {
   res.setHeader('content-disposition', `attachment; filename="${pid}-export.json"`);
   res.json({ exportedAt: new Date().toISOString(), mode: LIVE ? 'live' : 'demo', participant: p, events: ev });
 });
-app.post('/api/r/override', (req, res) => {
+app.post('/api/r/override', queued((req, res) => {
   const p = loadP(String(req.body.pid || '').toUpperCase()); if (!p) return res.status(404).json({ error: 'Unknown participant.' });
   if (!p.topics) return res.status(400).json({ error: 'Session 1 not done yet.' });
+  if (p.s2.blocks && p.s2.blocks.some(B => B.convs.some(c => c.turns.length))) return res.status(400).json({ error: 'Session 2 has started: changing the topics would delete the conversations. Reset Session 2 first if the topics must change.' });
   const { opinion, preference } = req.body;
-  if (Array.isArray(opinion) && opinion.length === 2) p.topics.opinion = opinion;
-  if (Array.isArray(preference) && preference.length === 2) p.topics.preference = preference;
+  const okIds = (arr, list) => Array.isArray(arr) && arr.length === 2 && arr[0] !== arr[1] && arr.every(id => list.some(t => t.id === id));
+  if (!okIds(opinion, TOPICS.opinion) || !okIds(preference, TOPICS.preference)) return res.status(400).json({ error: 'Choose two different opinion topics and two different preference topics.' });
+  p.topics.opinion = opinion; p.topics.preference = preference;
   p.override = true; initBlocks(p); saveP(p); logEvent(p.pid, 'override', { opinion: p.topics.opinion, preference: p.topics.preference });
   res.json({ ok: true });
-});
-app.post('/api/r/start-s2', (req, res) => {
+}));
+app.post('/api/r/start-s2', queued((req, res) => {
   const p = loadP(String(req.body.pid || '').toUpperCase()); if (!p) return res.status(404).json({ error: 'Unknown participant.' });
   if (!p.topics) return res.status(400).json({ error: 'Session 1 not done yet.' });
   p.s2.started = new Date().toISOString(); saveP(p); logEvent(p.pid, 'startSession2', {}); res.json({ ok: true });
-});
-app.post('/api/r/delete', (req, res) => {
+}));
+app.post('/api/r/delete', queued((req, res) => {
   const pid = String(req.body.pid || '').toUpperCase(); if (!loadP(pid)) return res.status(404).json({ error: 'Unknown participant.' });
   fs.rmSync(pfile(pid), { force: true }); fs.rmSync(path.join(LOG_DIR, pid + '.jsonl'), { force: true });
   res.json({ ok: true });
-});
-app.post('/api/r/reset', (req, res) => {
+}));
+app.post('/api/r/reset', queued((req, res) => {
   const pid = String(req.body.pid || '').toUpperCase(); const p = loadP(pid); if (!p) return res.status(404).json({ error: 'Unknown participant.' });
   const what = req.body.what || 'session2';
   if (what === 'all') { const np = newParticipant(pid); saveP(np); }
   else { p.s2 = newParticipant(pid).s2; if (p.topics) initBlocks(p); for (const m of p.memory) m.removed = false; saveP(p); }
   logEvent(pid, 'reset', { what }); res.json({ ok: true });
-});
+}));
 
 app.get('/researcher', (req, res) => res.sendFile(path.join(__dirname, 'public', 'researcher.html')));
 app.get('/health', (req, res) => res.json({ ok: true, mode: LIVE ? 'live' : 'demo', version: require('./package.json').version, dataDir: DATA_DIR, participants: fs.readdirSync(PART_DIR).filter(f => f.endsWith('.json')).length }));
