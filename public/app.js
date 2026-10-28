@@ -42,6 +42,43 @@
     return `<div class="msg-ai" data-turn="${turn.i}"><span class="ai-label">A</span><p>${sentencesHtml(turn.sentences)}</p></div>`;
   }
 
+  // ------------------------------------------------------------ word-by-word reveal of a new answer
+  // The finished answer is shown progressively, at about the pace a streaming assistant writes. A highlighted
+  // sentence appears already marked, so nothing is painted afterwards; the effect is identical in both versions.
+  const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  function answerShell(turn) { return `<div class="msg-ai" data-turn="${turn.i}"><span class="ai-label">A</span><p></p></div>`; }
+  async function revealAnswer(el, turn) {
+    const p = el.querySelector('p');
+    if (reduceMotion) { p.innerHTML = sentencesHtml(turn.sentences); return 0; }
+    // Every word gets a due time in advance (about 60 words a second, with a short pause after each sentence), and each
+    // tick appends whatever is due. The duration is therefore the same on a slow device or in a background tab.
+    const steps = []; let at = 0;
+    for (const s of turn.sentences) {
+      let holder = null;
+      if (s.mem && s.mem.length) { holder = document.createElement('mark'); holder.className = 'mem'; holder.tabIndex = 0; holder.setAttribute('data-mem', s.mem.join(',')); }
+      const words = s.text.split(/\s+/).filter(Boolean);
+      words.forEach((w, i) => { at += 12 + Math.random() * 10; steps.push({ holder, text: w + (i < words.length - 1 ? ' ' : ''), at, first: holder && i === 0 }); });
+      at += 50; steps.push({ holder: null, text: ' ', at });
+    }
+    const caret = document.createElement('span'); caret.className = 'caret'; p.appendChild(caret);
+    const nearBottom = () => window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 120;
+    const t0 = Date.now(); let k = 0;
+    while (k < steps.length) {
+      const elapsed = Date.now() - t0, follow = nearBottom();
+      while (k < steps.length && steps[k].at <= elapsed) {
+        const st = steps[k++];
+        if (st.first) p.insertBefore(st.holder, caret);
+        const node = document.createTextNode(st.text);
+        if (st.holder) st.holder.appendChild(node); else p.insertBefore(node, caret);
+      }
+      if (follow) window.scrollTo(0, document.documentElement.scrollHeight);
+      if (k < steps.length) await sleep(Math.max(8, Math.min(40, steps[k].at - (Date.now() - t0))));
+    }
+    caret.remove();
+    return Date.now() - t0;
+  }
+
   // ------------------------------------------------------------ tooltip for highlights
   function showTip(mark) {
     const ids = (mark.getAttribute('data-mem') || '').split(',').filter(Boolean);
@@ -169,8 +206,10 @@
       try {
         const r = await api('chat', { message: text });
         state.conv.turns.push(r.turn);
-        $('#pending').outerHTML = answerHtml(r.turn, state.version);
-        $('#msg').value = ''; counter(); log('answerShown', { turn: r.turn.i });
+        $('#pending').outerHTML = answerShell(r.turn);
+        $('#msg').value = ''; log('answerShown', { turn: r.turn.i });
+        const ms = await revealAnswer(thread.querySelector(`.msg-ai[data-turn="${r.turn.i}"]`), r.turn);
+        counter(); log('answerRevealed', { turn: r.turn.i, ms });
       } catch (e) { $('#pending').remove(); err(e.message); }
       $('#send').disabled = false; $('#msg').disabled = false; $('#msg').focus();
     };

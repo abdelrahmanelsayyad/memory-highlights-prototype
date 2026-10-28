@@ -59,6 +59,11 @@ textarea { min-height: 110px; resize: vertical; }
 .msg-ai p { margin: 0 0 10px; }
 .ai-label { position: absolute; left: 0; top: 2px; width: 30px; height: 30px; border-radius: 8px; background: var(--spruce-tint); color: var(--spruce); display: grid; place-items: center; font-weight: 600; font-family: var(--read); }
 .msg-ai.pending { color: var(--faint); font-style: italic; }
+.msg-ai.pending p { animation: pulse 1.4s ease-in-out infinite; }
+.caret { display: inline-block; width: 2px; height: 1em; margin-left: 1px; vertical-align: -0.15em; background: var(--spruce); animation: blink 1s steps(1) infinite; }
+@keyframes pulse { 50% { opacity: .4; } }
+@keyframes blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .msg-ai.pending p, .caret { animation: none; } }
 mark.mem { background: linear-gradient(transparent 6%, var(--marker) 6%, var(--marker) 92%, transparent 92%); padding: 0 2px; border-radius: 2px; cursor: help; }
 mark.mem:hover, mark.mem:focus { background: linear-gradient(transparent 6%, var(--marker-hot) 6%, var(--marker-hot) 92%, transparent 92%); outline: none; }
 mark.sel { background: #cfe3dc; padding: 0 2px; cursor: pointer; border-radius: 2px; }

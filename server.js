@@ -26,7 +26,7 @@ const PORT = process.env.PORT || 3000;
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), { etag: true, lastModified: true, setHeaders: res => res.set('Cache-Control', 'no-cache') })); // revalidate on every load: participants must never run stale app.js after a deploy
 app.use('/legacy', express.static(path.join(__dirname, 'legacy')));
 
 // ---------------------------------------------------------------- storage
