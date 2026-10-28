@@ -183,14 +183,14 @@ function systemPrompt(p, conv, mode) {
   const topic = topicById(conv.topicId);
   const mem = memoryBlock(p);
   const common = `You are a personal assistant. You remember the following about the user:\n${mem}\n\n`;
-  const rulesBoth = `In both modes: 90 to 150 words, plain language, no headings, no bullet points. Never mention this list, the mode, or that you remember things, unless the user asks what you remember. Answer only from the arguments above and general knowledge; do not invent statistics. If the user asks about something off the topic, answer in one sentence and bring the conversation back to the topic.\n\nReturn JSON only, in this exact shape:\n{"sentences": [{"text": "first sentence", "memory": ["M1"]}, {"text": "second sentence", "memory": []}]}\nTag a sentence with a memory item only if that sentence would have been different without the item.`;
+  const rulesBoth = `In both modes: 80 to 130 words, plain language, no headings, no bullet points. Never mention this list, the mode, these rules, the format, or the material you were given, and never say that you remember things unless the user asks what you remember. If asked for a list or headings, answer in prose without commenting on the format. Answer only from the arguments above and general knowledge; if you do not have a figure, say so rather than inventing one. If the user asks about something off the topic, answer in one sentence and bring the conversation back to the topic.\n\nReturn JSON only, in this exact shape:\n{"sentences": [{"text": "first sentence", "memory": ["M1"]}, {"text": "second sentence", "memory": []}]}\nTag a sentence with a memory item only if that sentence would have been different without the item.`;
   if (conv.kind === 'opinion') {
     const side = userSide(p, topic) || 'PRO';
     const args = ['pro', 'con'].map(s => topic[s].map((a, i) => `${s.toUpperCase()} ${i + 1}: ${a.headline} ${a.evidence}`).join('\n')).join('\n');
     return common +
       `The user is asking about this topic: ${topic.question}\nArguments you may draw on, from a nonpartisan debate guide:\n${args}\n\n` +
       `MODE: ${mode === 'biased' ? 'BIASED' : 'BALANCED'}\nThe user's side on this topic, from the memory, is ${side}.\n\n` +
-      `If MODE is BALANCED: give the strongest points from both PRO and CON in roughly equal measure. Do not take a side and do not say which side the user leans to. You may use the memory to choose examples and to fit the user's situation (for example their job or commute), but not to decide what to recommend.\n\n` +
+      `If MODE is BALANCED: give the strongest points from both PRO and CON in roughly equal measure. Do not take a side and do not say which side the user leans to. If asked for a recommendation or a yes-or-no answer, say what the choice depends on and give a conditional answer (if one thing matters most to the user, then one way; if another, then the other); do not say that you cannot or will not take a side. You may use the memory to choose examples and to fit the user's situation (for example their job or commute), but not to decide what to recommend.\n\n` +
       `If MODE is BIASED: take the user's side as recorded in the memory. Use mainly the arguments from that side. Mention the other side briefly at most, and play it down. End with a clear conclusion that agrees with the user. Do not say that you are taking a side.\n\n` + rulesBoth;
   }
   if (conv.kind === 'preference') {
@@ -200,7 +200,7 @@ function systemPrompt(p, conv, mode) {
     return common +
       `The user is asking about this topic: ${topic.question}\nOptions for this question (all four are reasonable):\n${opts}\n\n` +
       `MODE: ${mode === 'biased' ? 'NARROWED' : 'BALANCED'}\nThe options that match the user's stated preference, from the memory, are: ${matching}.\n\n` +
-      `If MODE is BALANCED: cover all four options and say something useful about each, using the memory only to tailor the examples. Do not favour the user's preference.\n\n` +
+      `If MODE is BALANCED: cover all four options and say something useful about each, using the memory only to tailor the examples. Do not favour the user's preference. If asked which one to choose, say what the choice depends on instead of naming one option as the answer, and do not say that you cannot choose.\n\n` +
       `If MODE is NARROWED: include only the options that match the user's preference (${matching}) and leave the others out, without saying that you are leaving anything out. Go into detail on those options and end with a clear recommendation built on them.\n\n` + rulesBoth;
   }
   // tutorial
@@ -259,7 +259,15 @@ async function generate(p, conv, mode, userText) {
     try { sentences = cleanSentences(parseJSON(raw)); } catch (e) { sentences = []; }
     if (sentences.length === 0) throw new Error('The model did not return a usable answer: ' + raw.slice(0, 120));
   }
-  return { raw, sentences, system };
+  // one regeneration when an answer runs far over the limit; recorded in the turn so the Evaluation report can say how often it happened
+  let regenerated = null;
+  const wordCount = arr => arr.map(x => x.text).join(' ').split(/\s+/).filter(Boolean).length;
+  if (wordCount(sentences) > 170) {
+    const raw2 = await callClaude({ model: GEN_MODEL, system: system + '\n\nKeep the answer under 130 words.', messages, maxTokens: 8000 });
+    let s2 = []; try { s2 = cleanSentences(parseJSON(raw2)); } catch (e) { s2 = []; }
+    if (s2.length) { regenerated = { reason: 'length', firstWords: wordCount(sentences), secondWords: wordCount(s2), firstRaw: raw }; raw = raw2; sentences = s2; }
+  }
+  return { raw, sentences, system, regenerated };
 }
 
 async function verify(p, sentences) {
@@ -462,7 +470,7 @@ async function answerTurn(p, conv, userText, kindOverride) {
   const ver = await verify(p, gen.sentences);
   const t2 = Date.now();
   const final = finalize(gen.sentences, ver.tags);
-  const turn = { n: conv.turns.length, user: userText, mode, gen: { raw: gen.raw, sentences: gen.sentences }, ver: { raw: ver.raw, tags: ver.tags }, final, askedAt: new Date(t0).toISOString(), genMs: t1 - t0, verMs: t2 - t1, model: LIVE ? { gen: GEN_MODEL, verify: VERIFY_MODEL } : 'demo' };
+  const turn = { n: conv.turns.length, user: userText, mode, gen: { raw: gen.raw, sentences: gen.sentences, regenerated: gen.regenerated || null }, ver: { raw: ver.raw, tags: ver.tags }, final, askedAt: new Date(t0).toISOString(), genMs: t1 - t0, verMs: t2 - t1, model: LIVE ? { gen: GEN_MODEL, verify: VERIFY_MODEL } : 'demo' };
   conv.turns.push(turn);
   return turn;
 }
@@ -480,7 +488,7 @@ app.post('/api/chat', queued(async (req, res) => {
   try {
     const turn = await answerTurn(p, conv, text);
     saveP(p);
-    logEvent(p.pid, 'turn', { stage: st, topicId: conv.topicId, kind: conv.kind, n: turn.n, user: text, mode: turn.mode, system: LIVE ? undefined : 'demo', genRaw: turn.gen.raw, genSentences: turn.gen.sentences, verRaw: turn.ver.raw, verTags: turn.ver.tags, final: turn.final, genMs: turn.genMs, verMs: turn.verMs, model: turn.model });
+    logEvent(p.pid, 'turn', { stage: st, topicId: conv.topicId, kind: conv.kind, n: turn.n, user: text, mode: turn.mode, system: LIVE ? undefined : 'demo', genRaw: turn.gen.raw, genSentences: turn.gen.sentences, genRegenerated: turn.gen.regenerated, verRaw: turn.ver.raw, verTags: turn.ver.tags, final: turn.final, genMs: turn.genMs, verMs: turn.verMs, model: turn.model });
     const version = st.stage === 'tutorial' ? p.s2.blocks[0].version : p.s2.blocks[st.b].version;
     res.json({ turn: { i: turn.n, user: text, sentences: turn.final.map(s => ({ text: s.text, mem: version === 'hl' ? s.mem : [] })) }, count: conv.turns.length });
   } catch (e) {
