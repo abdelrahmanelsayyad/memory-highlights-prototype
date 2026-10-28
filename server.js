@@ -263,9 +263,13 @@ async function generate(p, conv, mode, userText) {
   let regenerated = null;
   const wordCount = arr => arr.map(x => x.text).join(' ').split(/\s+/).filter(Boolean).length;
   if (wordCount(sentences) > 170) {
-    const raw2 = await callClaude({ model: GEN_MODEL, system: system + '\n\nKeep the answer under 130 words.', messages, maxTokens: 8000 });
+    const raw2 = await callClaude({ model: GEN_MODEL, system: system + '\n\nHard limit for this answer: at most 120 words. Cut whole points rather than compressing every sentence.', messages, maxTokens: 8000 });
     let s2 = []; try { s2 = cleanSentences(parseJSON(raw2)); } catch (e) { s2 = []; }
-    if (s2.length) { regenerated = { reason: 'length', firstWords: wordCount(sentences), secondWords: wordCount(s2), firstRaw: raw }; raw = raw2; sentences = s2; }
+    if (s2.length) { // keep whichever of the two answers is shorter; both are recorded
+      const w1 = wordCount(sentences), w2 = wordCount(s2);
+      regenerated = { reason: 'length', firstWords: w1, secondWords: w2, kept: w2 < w1 ? 'second' : 'first', firstRaw: raw, secondRaw: raw2 };
+      if (w2 < w1) { raw = raw2; sentences = s2; }
+    }
   }
   return { raw, sentences, system, regenerated };
 }
