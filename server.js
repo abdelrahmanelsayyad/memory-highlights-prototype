@@ -31,13 +31,19 @@ app.use('/legacy', express.static(path.join(__dirname, 'legacy')));
 
 // ---------------------------------------------------------------- storage
 const pfile = pid => path.join(PART_DIR, pid + '.json');
+// A participant file that exists but cannot be parsed (a write cut short by a crash, a stray edit) throws this error
+// rather than looking like a missing participant, so nothing can overwrite it; the researcher page lists it as unreadable.
+class CorruptFile extends Error { constructor(pid, cause) { super('Stored file for ' + pid + ' cannot be read (' + ((cause && cause.message) || cause) + '). Download its export: it carries the raw file and the event log.'); this.code = 'CORRUPT'; this.pid = pid; } }
 function loadP(pid) {
   if (!/^P\d{1,2}$/.test(pid)) return null;
   const f = pfile(pid);
   if (!fs.existsSync(f)) return null;
-  return JSON.parse(fs.readFileSync(f, 'utf8'));
+  try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) { throw new CorruptFile(pid, e); }
 }
-function saveP(p) { fs.writeFileSync(pfile(p.pid), JSON.stringify(p, null, 1)); }
+// Written to a temporary file and renamed into place, so a crash in the middle of a write leaves the previous file intact.
+function saveP(p) { const f = pfile(p.pid), tmp = f + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(p, null, 1)); fs.renameSync(tmp, f); }
+for (const f of fs.readdirSync(PART_DIR)) if (f.endsWith('.tmp')) fs.rmSync(path.join(PART_DIR, f), { force: true }); // leftovers of an interrupted write
+const errorJson = (res, e) => { if (res.headersSent) return; if (e && e.code === 'CORRUPT') res.status(409).json({ error: e.message }); else res.status(500).json({ error: 'Server error.' }); };
 function logEvent(pid, type, data) {
   const line = JSON.stringify({ t: new Date().toISOString(), pid, type, ...data });
   fs.appendFileSync(path.join(LOG_DIR, pid + '.jsonl'), line + '\n');
@@ -430,7 +436,7 @@ function queued(handler) {
   return (req, res) => {
     const pid = String(req.query.pid || (req.body || {}).pid || '').toUpperCase();
     const prev = queues.get(pid) || Promise.resolve();
-    const next = prev.then(() => handler(req, res)).catch(e => { console.error('handler error', e); if (!res.headersSent) res.status(500).json({ error: 'Server error.' }); });
+    const next = prev.then(() => handler(req, res)).catch(e => { console.error('handler error', e); errorJson(res, e); });
     const tail = next.finally(() => { if (queues.get(pid) === tail) queues.delete(pid); });
     queues.set(pid, tail);
     return tail;
@@ -595,9 +601,13 @@ function researcherAuth(req, res, next) {
 }
 app.use('/api/r', researcherAuth);
 app.get('/api/r/status', (req, res) => {
-  const list = fs.readdirSync(PART_DIR).filter(f => f.endsWith('.json')).map(f => loadP(f.replace('.json', ''))).filter(Boolean)
-    .sort((a, b) => parseInt(a.pid.slice(1)) - parseInt(b.pid.slice(1)))
-    .map(p => ({ pid: p.pid, stage: stageOf(p), assignment: p.assignment, eligible: p.topics ? p.topics.eligible : null, override: p.override, warnings: topicWarnings(p), topics: p.topics ? { opinion: p.topics.opinion, preference: p.topics.preference } : null, withdrawn: p.s2.withdrawn, memoryItems: p.memory.filter(m => !m.removed).length, turns: p.s2.blocks ? p.s2.blocks.reduce((n, B) => n + B.convs.reduce((m, c) => m + c.turns.length, 0), 0) : 0 }));
+  const rows = [];
+  for (const f of fs.readdirSync(PART_DIR).filter(f => f.endsWith('.json'))) {
+    const pid = f.replace('.json', '');
+    try { const p = loadP(pid); if (p) rows.push(p); } catch (e) { rows.push({ pid, corrupt: e.message }); }
+  }
+  const list = rows.sort((a, b) => parseInt(a.pid.slice(1)) - parseInt(b.pid.slice(1)))
+    .map(p => p.corrupt ? { pid: p.pid, corrupt: true, stage: { stage: 'file unreadable' }, assignment: { versions: [], topicSets: [] }, eligible: null, override: false, warnings: [p.corrupt], topics: null, withdrawn: false, memoryItems: 0, turns: 0 } : ({ pid: p.pid, stage: stageOf(p), assignment: p.assignment, eligible: p.topics ? p.topics.eligible : null, override: p.override, warnings: topicWarnings(p), topics: p.topics ? { opinion: p.topics.opinion, preference: p.topics.preference } : null, withdrawn: p.s2.withdrawn, memoryItems: p.memory.filter(m => !m.removed).length, turns: p.s2.blocks ? p.s2.blocks.reduce((n, B) => n + B.convs.reduce((m, c) => m + c.turns.length, 0), 0) : 0 }));
   res.json({ mode: LIVE ? 'live' : 'demo', genModel: LIVE ? GEN_MODEL : null, verifyModel: LIVE ? VERIFY_MODEL : null, keyProtected: !!RESEARCHER_KEY, dataDir: DATA_DIR, participants: list, topics: { opinion: TOPICS.opinion.map(t => ({ id: t.id, question: t.question })), preference: TOPICS.preference.map(t => ({ id: t.id, item: t.item })) } });
 });
 app.post('/api/r/participant', (req, res) => {
@@ -609,10 +619,14 @@ app.post('/api/r/participant', (req, res) => {
 });
 app.get('/api/r/participant/:pid', (req, res) => { const p = loadP(req.params.pid.toUpperCase()); if (!p) return res.status(404).json({ error: 'Unknown participant.' }); res.json({ participant: p, stage: stageOf(p) }); });
 app.get('/api/r/export/:pid', (req, res) => {
-  const pid = req.params.pid.toUpperCase(); const p = loadP(pid); if (!p) return res.status(404).json({ error: 'Unknown participant.' });
-  const ev = fs.existsSync(path.join(LOG_DIR, pid + '.jsonl')) ? fs.readFileSync(path.join(LOG_DIR, pid + '.jsonl'), 'utf8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l)) : [];
+  const pid = req.params.pid.toUpperCase();
+  let p = null, corrupt = null, participantRaw;
+  try { p = loadP(pid); } catch (e) { corrupt = e.message; participantRaw = fs.readFileSync(pfile(pid), 'utf8'); }
+  if (!p && !corrupt) return res.status(404).json({ error: 'Unknown participant.' });
+  const logFile = path.join(LOG_DIR, pid + '.jsonl'), unreadableEventLines = [];
+  const ev = fs.existsSync(logFile) ? fs.readFileSync(logFile, 'utf8').trim().split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch (e) { unreadableEventLines.push(l); return null; } }).filter(Boolean) : [];
   res.setHeader('content-disposition', `attachment; filename="${pid}-export.json"`);
-  res.json({ exportedAt: new Date().toISOString(), mode: LIVE ? 'live' : 'demo', participant: p, events: ev });
+  res.json({ exportedAt: new Date().toISOString(), mode: LIVE ? 'live' : 'demo', participant: p, events: ev, ...(corrupt ? { corrupt, participantRaw } : {}), ...(unreadableEventLines.length ? { unreadableEventLines } : {}) });
 });
 app.post('/api/r/override', queued((req, res) => {
   const p = loadP(String(req.body.pid || '').toUpperCase()); if (!p) return res.status(404).json({ error: 'Unknown participant.' });
@@ -631,7 +645,7 @@ app.post('/api/r/start-s2', queued((req, res) => {
   p.s2.started = new Date().toISOString(); saveP(p); logEvent(p.pid, 'startSession2', {}); res.json({ ok: true });
 }));
 app.post('/api/r/delete', queued((req, res) => {
-  const pid = String(req.body.pid || '').toUpperCase(); if (!loadP(pid)) return res.status(404).json({ error: 'Unknown participant.' });
+  const pid = String(req.body.pid || '').toUpperCase(); if (!/^P\d{1,2}$/.test(pid) || !fs.existsSync(pfile(pid))) return res.status(404).json({ error: 'Unknown participant.' });
   fs.rmSync(pfile(pid), { force: true }); fs.rmSync(path.join(LOG_DIR, pid + '.jsonl'), { force: true });
   res.json({ ok: true });
 }));
@@ -646,4 +660,5 @@ app.post('/api/r/reset', queued((req, res) => {
 app.get('/researcher', (req, res) => res.sendFile(path.join(__dirname, 'public', 'researcher.html')));
 app.get('/health', (req, res) => res.json({ ok: true, mode: LIVE ? 'live' : 'demo', version: require('./package.json').version, dataDir: DATA_DIR, participants: fs.readdirSync(PART_DIR).filter(f => f.endsWith('.json')).length }));
 
+app.use((err, req, res, next) => { console.error('request error', err); if (res.headersSent) return next(err); errorJson(res, err); });
 app.listen(PORT, '0.0.0.0', () => console.log(`Study tool listening on ${PORT} in ${LIVE ? 'LIVE' : 'DEMO'} mode; data in ${DATA_DIR}`));

@@ -66,7 +66,13 @@
   }
   let cur = null;
   async function openP(pid, keepSelects) {
-    let r; try { r = await api('participant/' + pid); } catch (e) { if (cur === pid) { cur = null; $('#detail').hidden = true; } return; }
+    let r; try { r = await api('participant/' + pid); } catch (e) {
+      if (/^Stored file for/.test(e.message)) { // unreadable file: offer the export (raw file plus event log) and delete, nothing else
+        cur = pid; $('#detail').hidden = false; $('#dtitle').textContent = pid + ' · ' + e.message; $('#export').href = '/api/r/export/' + pid;
+        $('#dump').textContent = 'Use "Download JSON export" to save what is left (the raw file and the event log), then "Delete" if the file cannot be repaired.'; return;
+      }
+      if (cur === pid) { cur = null; $('#detail').hidden = true; } return;
+    }
     cur = pid; $('#detail').hidden = false; $('#dtitle').textContent = pid + ' · stage ' + JSON.stringify(r.stage);
     if (r.participant.topics && !keepSelects) { $('#oA').value = r.participant.topics.opinion[0]; $('#oB').value = r.participant.topics.opinion[1]; $('#pA').value = r.participant.topics.preference[0]; $('#pB').value = r.participant.topics.preference[1]; }
     $('#export').href = '/api/r/export/' + pid;
