@@ -160,7 +160,7 @@
   }
 
   function renderConsent(demo) {
-    setScreen(demo + `<h1>Welcome back</h1><p class="lede">This session takes about 70 minutes. You will chat with an assistant that remembers what you told us in Session 1, use it for a few real tasks, and answer some questions about it.</p>
+    setScreen(demo + `<h1>Welcome back</h1><p class="lede">This session takes up to 90 minutes. You will chat with an assistant that remembers what you told us in Session 1, use it for a few real tasks, and answer some questions about it.</p>
       <h3>Before we start</h3>
       <p>The session is audio- and screen-recorded so that your comments can be transcribed. Recordings are stored on an encrypted drive and deleted after the course. You can stop at any time, and you can ask for your data to be removed at the end of the session or later.</p>
       <p>We will ask you to <b>think aloud</b> while you use the assistant: say what you are reading and what you make of it, as it comes to you. The researcher will do a one-minute practice with you first.</p>
@@ -195,27 +195,44 @@
       <div class="counter" id="counter"></div>
       <div class="actions"><span class="err" id="err"></span>${isTut ? `<button class="btn ghost" id="tutdone">I've got it, start the study</button>` : `<button class="btn" id="finish" ${n < 4 ? 'disabled' : ''}>Finish and write your ${conv.kind === 'opinion' ? 'message' : 'plan'}</button>`}</div>`;
     setScreen(html);
-    const counter = () => { const c = state.conv.turns.length; $('#counter').textContent = isTut ? '' : (c < 4 ? `${c} of at least 4 questions asked` : `${c} questions asked. You can keep going or finish.`); const f = $('#finish'); if (f) f.disabled = c < 4; };
+    if (n) log('threadShown', { turns: n }); // answers shown at once (for example after a reload), so every stored answer is traceably seen
+    // While a question is on its way, and while its answer is being revealed, Finish (and the practice button) stay off:
+    // otherwise the conversation could close on an answer the participant never read, which the audit would then score.
+    let busy = false;
+    const counter = () => { const c = state.conv.turns.length; $('#counter').textContent = isTut ? '' : (c < 4 ? `${c} of at least 4 questions asked` : `${c} questions asked. You can keep going or finish.`); const f = $('#finish'); if (f) f.disabled = busy || c < 4; const t = $('#tutdone'); if (t) t.disabled = busy; };
     counter();
     const send = async () => {
-      const text = $('#msg').value.trim(); if (!text) return;
+      const text = $('#msg').value.trim(); if (!text || busy) return;
+      busy = true; counter();
       $('#send').disabled = true; $('#msg').disabled = true; err('');
       const thread = $('#thread');
       thread.insertAdjacentHTML('beforeend', `<div class="msg-user" id="pending-user">${esc(text)}</div><div class="msg-ai pending" id="pending"><span class="ai-label">A</span><p>Thinking…</p></div>`);
       thread.lastElementChild.scrollIntoView({ block: 'end' });
+      const slow = setTimeout(() => { const pe = $('#pending p'); if (pe) pe.textContent = 'Still working on it. This can take up to a minute.'; }, 15000);
       try {
         const r = await api('chat', { message: text });
+        clearTimeout(slow);
         state.conv.turns.push(r.turn);
         $('#pending').outerHTML = answerShell(r.turn); const ub = $('#pending-user'); if (ub) ub.removeAttribute('id');
         $('#msg').value = ''; log('answerShown', { turn: r.turn.i });
         const ms = await revealAnswer(thread.querySelector(`.msg-ai[data-turn="${r.turn.i}"]`), r.turn);
-        counter(); log('answerRevealed', { turn: r.turn.i, ms });
-      } catch (e) { const pe = $('#pending'); if (pe) pe.remove(); const ub = $('#pending-user'); if (ub) ub.remove(); err(e.message); }
+        log('answerRevealed', { turn: r.turn.i, ms });
+      } catch (e) {
+        clearTimeout(slow);
+        const pe = $('#pending'); if (pe) pe.remove(); const ub = $('#pending-user'); if (ub) ub.remove(); err(e.message);
+        // The answer may have been stored even though this request failed (a dropped connection, for example): show it rather than lose it.
+        try { const s = await api('state?pid=' + encodeURIComponent(pid)); if (s.stage === state.stage && s.conv && s.conv.turns.length > state.conv.turns.length) { state = s; render(); return; } } catch (e2) { /* keep the error shown */ }
+      }
+      busy = false; counter();
       $('#send').disabled = false; $('#msg').disabled = false; $('#msg').focus();
     };
     $('#send').onclick = send; $('#msg').onkeydown = e => { if (e.key === 'Enter') send(); };
-    if ($('#finish')) $('#finish').onclick = async () => { try { state = await api('finish', {}); render(); } catch (e) { err(e.message); } };
-    if ($('#tutdone')) $('#tutdone').onclick = async () => { try { state = await api('tutorial-done', {}); render(); } catch (e) { err(e.message); } };
+    if ($('#finish')) $('#finish').onclick = async () => {
+      if (busy) return;
+      try { state = await api('finish', { seen: state.conv.turns.length }); render(); }
+      catch (e) { err(e.message); if (/just arrived/.test(e.message)) setTimeout(load, 1500); } // reload to show the answer that came in
+    };
+    if ($('#tutdone')) $('#tutdone').onclick = async () => { if (busy) return; try { state = await api('tutorial-done', {}); render(); } catch (e) { err(e.message); } };
     $('#msg').focus();
   }
 

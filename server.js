@@ -23,11 +23,11 @@ const VERIFY_MODEL = process.env.VERIFY_MODEL || 'claude-haiku-5-5';
 const RESEARCHER_KEY = process.env.RESEARCHER_KEY || '';
 const LIVE = !!API_KEY;
 const PORT = process.env.PORT || 3000;
+const VERSION = require('./package.json').version; // stored with every answer, so each answer can be traced to the tool version that wrote it
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public'), { etag: true, lastModified: true, setHeaders: res => res.set('Cache-Control', 'no-cache') })); // revalidate on every load: participants must never run stale app.js after a deploy
-app.use('/legacy', express.static(path.join(__dirname, 'legacy')));
 
 // ---------------------------------------------------------------- storage
 const pfile = pid => path.join(PART_DIR, pid + '.json');
@@ -223,10 +223,12 @@ function verifyUser(p, sentences) {
 
 // ---------------------------------------------------------------- model calls
 const Anthropic = require('@anthropic-ai/sdk');
-const claude = LIVE ? new Anthropic() : null; // reads ANTHROPIC_API_KEY; retries rate limits and 5xx itself
-async function callClaude({ model, system, messages, maxTokens = 8000, effort = 'medium' }) {
+const claude = LIVE ? new Anthropic({ timeout: 30000, maxRetries: 1 }) : null; // reads ANTHROPIC_API_KEY; retries rate limits, 5xx and time-outs itself
+async function callClaude({ model, system, messages, maxTokens = 8000, effort = 'medium', timeout = 30000, retries = 1 }) {
   // No temperature: the Claude 5.5 models reject sampling parameters. Effort controls how much the model thinks.
-  const res = await claude.messages.create({ model, system, messages, max_tokens: maxTokens, output_config: { effort } });
+  // Every call has a time limit (the slowest answer in the October 28 runs took 17 s), so a hung call fails within about
+  // a minute and the participant can ask again, instead of the session freezing.
+  const res = await claude.messages.create({ model, system, messages, max_tokens: maxTokens, output_config: { effort } }, { timeout, maxRetries: retries });
   if (res.stop_reason === 'refusal') throw new Error('The model declined this request' + (res.stop_details && res.stop_details.category ? ` (${res.stop_details.category})` : ''));
   if (res.stop_reason === 'max_tokens') throw new Error('The model ran out of output tokens');
   return res.content.filter(b => b.type === 'text').map(b => b.text).join('');
@@ -261,7 +263,7 @@ async function generate(p, conv, mode, userText) {
   let sentences;
   try { sentences = cleanSentences(parseJSON(raw)); } catch (e) { sentences = []; }
   if (sentences.length === 0) { // nothing parsable: one retry with a firmer instruction (a one-sentence answer is fine)
-    raw = await callClaude({ model: GEN_MODEL, system: system + '\n\nYour previous reply was not valid JSON. Reply with the JSON object only.', messages, maxTokens: 8000 });
+    raw = await callClaude({ model: GEN_MODEL, system: system + '\n\nYour previous reply was not valid JSON. Reply with the JSON object only.', messages, maxTokens: 8000, retries: 0 });
     try { sentences = cleanSentences(parseJSON(raw)); } catch (e) { sentences = []; }
     if (sentences.length === 0) throw new Error('The model did not return a usable answer: ' + raw.slice(0, 120));
   }
@@ -269,7 +271,9 @@ async function generate(p, conv, mode, userText) {
   let regenerated = null;
   const wordCount = arr => arr.map(x => x.text).join(' ').split(/\s+/).filter(Boolean).length;
   if (wordCount(sentences) > 170) {
-    const raw2 = await callClaude({ model: GEN_MODEL, system: system + '\n\nHard limit for this answer: at most 120 words. Cut whole points rather than compressing every sentence.', messages, maxTokens: 8000 });
+    let raw2 = '';
+    try { raw2 = await callClaude({ model: GEN_MODEL, system: system + '\n\nHard limit for this answer: at most 120 words. Cut whole points rather than compressing every sentence.', messages, maxTokens: 8000, retries: 0 }); }
+    catch (e) { regenerated = { reason: 'length', firstWords: wordCount(sentences), failed: String(e.message || e).slice(0, 200), kept: 'first' }; } // the first answer is still usable
     let s2 = []; try { s2 = cleanSentences(parseJSON(raw2)); } catch (e) { s2 = []; }
     if (s2.length) { // keep whichever of the two answers is shorter; both are recorded
       const w1 = wordCount(sentences), w2 = wordCount(s2);
@@ -281,13 +285,20 @@ async function generate(p, conv, mode, userText) {
 }
 
 async function verify(p, sentences) {
-  if (!LIVE) return { raw: null, tags: sentences.map(s => s.memory.slice()) };
+  if (!LIVE) return { raw: null, tags: sentences.map(s => s.memory.slice()), failed: null };
   const user = verifyUser(p, sentences);
-  const raw = await callClaude({ model: VERIFY_MODEL, system: VERIFY_SYSTEM, messages: [{ role: 'user', content: user }], maxTokens: 4000, effort: 'low' });
-  let tags = [];
-  try { const o = parseJSON(raw); tags = Array.isArray(o.tags) ? o.tags : []; } catch (e) { tags = []; }
-  tags = sentences.map((s, i) => Array.isArray(tags[i]) ? tags[i].filter(x => /^M\d+$/.test(String(x))).map(String) : []);
-  return { raw, tags };
+  const ask = extra => callClaude({ model: VERIFY_MODEL, system: VERIFY_SYSTEM + extra, messages: [{ role: 'user', content: user }], maxTokens: 4000, effort: 'low', timeout: 20000 });
+  const read = raw => { try { const o = parseJSON(raw); return Array.isArray(o.tags) && o.tags.length === sentences.length ? o.tags : null; } catch (e) { return null; } };
+  // A reply that cannot be read, or has the wrong number of entries, is asked for once more. If it still fails, the answer is
+  // shown without highlights and flagged (ver.failed), so the analysis can set it aside instead of its highlights vanishing silently.
+  let raw = null, tags = null, failed = null;
+  try { raw = await ask(''); tags = read(raw); } catch (e) { failed = String(e.message || e).slice(0, 200); }
+  if (!tags) {
+    try { raw = await ask(`\n\nReturn exactly ${sentences.length} entries in "tags", one per sentence.`); tags = read(raw); failed = tags ? null : 'unreadable reply'; }
+    catch (e) { failed = String(e.message || e).slice(0, 200); }
+  }
+  tags = sentences.map((s, i) => tags && Array.isArray(tags[i]) ? tags[i].filter(x => /^M\d+$/.test(String(x))).map(String) : []);
+  return { raw, tags, failed };
 }
 
 function finalize(sentences, verTags) {
@@ -443,7 +454,9 @@ function queued(handler) {
   };
 }
 
-app.get('/api/state', (req, res) => { const p = getP(req, res); if (!p) return; res.json(stateFor(p)); });
+// Queued like the other requests: after a reload during an answer, the state waits for that answer and includes it, so the
+// participant sees every answer that is stored (and later audited) instead of a conversation that silently skips one.
+app.get('/api/state', queued((req, res) => { const p = getP(req, res); if (!p) return; res.json(stateFor(p)); }));
 
 app.post('/api/session1', queued((req, res) => {
   const p = getP(req, res); if (!p) return;
@@ -480,7 +493,7 @@ async function answerTurn(p, conv, userText, kindOverride) {
   const ver = await verify(p, gen.sentences);
   const t2 = Date.now();
   const final = finalize(gen.sentences, ver.tags);
-  const turn = { n: conv.turns.length, user: userText, mode, gen: { raw: gen.raw, sentences: gen.sentences, regenerated: gen.regenerated || null }, ver: { raw: ver.raw, tags: ver.tags }, final, askedAt: new Date(t0).toISOString(), genMs: t1 - t0, verMs: t2 - t1, model: LIVE ? { gen: GEN_MODEL, verify: VERIFY_MODEL } : 'demo' };
+  const turn = { n: conv.turns.length, user: userText, mode, gen: { raw: gen.raw, sentences: gen.sentences, regenerated: gen.regenerated || null }, ver: { raw: ver.raw, tags: ver.tags, failed: ver.failed || null }, final, askedAt: new Date(t0).toISOString(), genMs: t1 - t0, verMs: t2 - t1, model: LIVE ? { gen: GEN_MODEL, verify: VERIFY_MODEL } : 'demo', toolVersion: VERSION };
   conv.turns.push(turn);
   return turn;
 }
@@ -498,7 +511,8 @@ app.post('/api/chat', queued(async (req, res) => {
   try {
     const turn = await answerTurn(p, conv, text);
     saveP(p);
-    logEvent(p.pid, 'turn', { stage: st, topicId: conv.topicId, kind: conv.kind, n: turn.n, user: text, mode: turn.mode, system: LIVE ? undefined : 'demo', genRaw: turn.gen.raw, genSentences: turn.gen.sentences, genRegenerated: turn.gen.regenerated, verRaw: turn.ver.raw, verTags: turn.ver.tags, final: turn.final, genMs: turn.genMs, verMs: turn.verMs, model: turn.model });
+    logEvent(p.pid, 'turn', { stage: st, topicId: conv.topicId, kind: conv.kind, n: turn.n, user: text, mode: turn.mode, system: LIVE ? undefined : 'demo', genRaw: turn.gen.raw, genSentences: turn.gen.sentences, genRegenerated: turn.gen.regenerated, verRaw: turn.ver.raw, verTags: turn.ver.tags, verFailed: turn.ver.failed, final: turn.final, genMs: turn.genMs, verMs: turn.verMs, model: turn.model, toolVersion: turn.toolVersion });
+    if (turn.ver.failed) logEvent(p.pid, 'verifyFailed', { kind: conv.kind, n: turn.n, reason: turn.ver.failed });
     const version = st.stage === 'tutorial' ? p.s2.blocks[0].version : p.s2.blocks[st.b].version;
     res.json({ turn: { i: turn.n, user: text, sentences: turn.final.map(s => ({ text: s.text, mem: version === 'hl' ? s.mem : [] })) }, count: conv.turns.length });
   } catch (e) {
@@ -514,6 +528,10 @@ app.post('/api/finish', queued((req, res) => {
   const st = stageOf(p); if (st.stage !== 'chat') return res.status(400).json({ error: 'Not in a conversation.' });
   const conv = p.s2.blocks[st.b].convs[st.c];
   if (conv.turns.length < 4) return res.status(400).json({ error: 'Please ask at least four questions first.' });
+  // The page sends how many answers it has shown. An answer stored after that (Finish pressed while one was on its way) has not
+  // been seen, so the conversation stays open and the page reloads to show it, instead of that answer being audited unseen.
+  const seen = Number(req.body.seen);
+  if (req.body.seen != null && Number.isFinite(seen) && conv.turns.length > seen) { logEvent(p.pid, 'finishRefused', { b: st.b, c: st.c, turns: conv.turns.length, seen }); return res.status(409).json({ error: 'An answer has just arrived. Please read it before you finish.', reload: true }); }
   conv.finished = new Date().toISOString(); saveP(p); logEvent(p.pid, 'finish', { b: st.b, c: st.c, turns: conv.turns.length });
   res.json(stateFor(p));
 }));
@@ -626,7 +644,7 @@ app.get('/api/r/export/:pid', (req, res) => {
   const logFile = path.join(LOG_DIR, pid + '.jsonl'), unreadableEventLines = [];
   const ev = fs.existsSync(logFile) ? fs.readFileSync(logFile, 'utf8').trim().split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch (e) { unreadableEventLines.push(l); return null; } }).filter(Boolean) : [];
   res.setHeader('content-disposition', `attachment; filename="${pid}-export.json"`);
-  res.json({ exportedAt: new Date().toISOString(), mode: LIVE ? 'live' : 'demo', participant: p, events: ev, ...(corrupt ? { corrupt, participantRaw } : {}), ...(unreadableEventLines.length ? { unreadableEventLines } : {}) });
+  res.json({ exportedAt: new Date().toISOString(), toolVersion: VERSION, mode: LIVE ? 'live' : 'demo', participant: p, events: ev, ...(corrupt ? { corrupt, participantRaw } : {}), ...(unreadableEventLines.length ? { unreadableEventLines } : {}) });
 });
 app.post('/api/r/override', queued((req, res) => {
   const p = loadP(String(req.body.pid || '').toUpperCase()); if (!p) return res.status(404).json({ error: 'Unknown participant.' });
@@ -658,7 +676,7 @@ app.post('/api/r/reset', queued((req, res) => {
 }));
 
 app.get('/researcher', (req, res) => res.sendFile(path.join(__dirname, 'public', 'researcher.html')));
-app.get('/health', (req, res) => res.json({ ok: true, mode: LIVE ? 'live' : 'demo', version: require('./package.json').version, dataDir: DATA_DIR, participants: fs.readdirSync(PART_DIR).filter(f => f.endsWith('.json')).length }));
+app.get('/health', (req, res) => res.json({ ok: true, mode: LIVE ? 'live' : 'demo', version: VERSION, dataDir: DATA_DIR, participants: fs.readdirSync(PART_DIR).filter(f => f.endsWith('.json')).length }));
 
 app.use((err, req, res, next) => { console.error('request error', err); if (res.headersSent) return next(err); errorJson(res, err); });
 app.listen(PORT, '0.0.0.0', () => console.log(`Study tool listening on ${PORT} in ${LIVE ? 'LIVE' : 'DEMO'} mode; data in ${DATA_DIR}`));
